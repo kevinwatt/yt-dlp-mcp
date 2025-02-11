@@ -2,6 +2,8 @@
 
 Uses `yt-dlp` to download YouTube content and connects it to LLMs via [Model Context Protocol](https://modelcontextprotocol.io/introduction). 
 
+<a href="https://glama.ai/mcp/servers/0nvr1xbmpk"><img width="380" height="200" src="https://glama.ai/mcp/servers/0nvr1xbmpk/badge" alt="YouTube Server MCP server" /></a>
+
 ## Features
 
 - Download YouTube subtitles (SRT format) for LLMs to read
