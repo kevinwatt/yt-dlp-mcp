@@ -1,5 +1,7 @@
 # YouTube MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@kevinwatt/yt-dlp-mcp)](https://smithery.ai/server/@kevinwatt/yt-dlp-mcp)
+
 Uses `yt-dlp` to download YouTube content and connects it to LLMs via [Model Context Protocol](https://modelcontextprotocol.io/introduction). 
 
 ## Features
@@ -10,6 +12,15 @@ Uses `yt-dlp` to download YouTube content and connects it to LLMs via [Model Con
 
 ## Installation
 
+### Installing via Smithery
+
+To install YouTube MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@kevinwatt/yt-dlp-mcp):
+
+```bash
+npx -y @smithery/cli install @kevinwatt/yt-dlp-mcp --client claude
+```
+
+### Installing Manually
 1. Install `yt-dlp` (Pip, Homebrew and WinGet both work great here)
 
 yt-dlp-mcp requires the yt-dlp package. Install it based on your operating system:
