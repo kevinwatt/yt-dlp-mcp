@@ -2,6 +2,8 @@
 
 An MCP server implementation that integrates with yt-dlp, providing video and audio content download capabilities (e.g. YouTube, Facebook, Tiktok, etc.) for LLMs.
 
+<a href="https://glama.ai/mcp/servers/0nvr1xbmpk"><img width="380" height="200" src="https://glama.ai/mcp/servers/0nvr1xbmpk/badge" alt="YouTube Server MCP server" /></a>
+
 ## Features
 
 * **Subtitles**: Download subtitles in SRT format for LLMs to read
