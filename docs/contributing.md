@@ -4,17 +4,20 @@
 
 1. Fork the repository
 2. Clone your fork:
+
 ```bash
 git clone https://github.com/your-username/yt-dlp-mcp.git
 cd yt-dlp-mcp
 ```
 
 3. Install dependencies:
+
 ```bash
 npm install
 ```
 
 4. Create a new branch:
+
 ```bash
 git checkout -b feature/your-feature-name
 ```
@@ -31,7 +34,7 @@ git checkout -b feature/your-feature-name
 ### Building
 
 ```bash
-npm run build
+npm run prepare
 ```
 
 ### Running Tests
@@ -41,6 +44,7 @@ npm test
 ```
 
 For specific test files:
+
 ```bash
 npm test -- src/__tests__/video.test.ts
 ```
@@ -72,10 +76,10 @@ interface DownloadOptions {
 
 // Use enums for fixed values
 enum Resolution {
-  SD = '480p',
-  HD = '720p',
-  FHD = '1080p',
-  BEST = 'best'
+  SD = "480p",
+  HD = "720p",
+  FHD = "1080p",
+  BEST = "best",
 }
 ```
 
@@ -91,16 +95,16 @@ enum Resolution {
 Example:
 
 ```typescript
-describe('downloadVideo', () => {
-  test('downloads video successfully', async () => {
+describe("downloadVideo", () => {
+  test("downloads video successfully", async () => {
     const result = await downloadVideo(testUrl);
     expect(result).toMatch(/Video successfully downloaded/);
   });
 
-  test('handles invalid URL', async () => {
-    await expect(downloadVideo('invalid-url'))
-      .rejects
-      .toThrow('Invalid or unsupported URL');
+  test("handles invalid URL", async () => {
+    await expect(downloadVideo("invalid-url")).rejects.toThrow(
+      "Invalid or unsupported URL"
+    );
   });
 });
 ```
@@ -108,6 +112,7 @@ describe('downloadVideo', () => {
 ### Test Coverage
 
 Aim for high test coverage:
+
 ```bash
 npm run test:coverage
 ```
@@ -118,16 +123,16 @@ npm run test:coverage
 
 Add comprehensive JSDoc comments for all public APIs:
 
-```typescript
+````typescript
 /**
  * Downloads a video from the specified URL.
- * 
+ *
  * @param url - The URL of the video to download
  * @param config - Optional configuration object
  * @param resolution - Preferred video resolution
  * @returns Promise resolving to success message with file path
  * @throws {Error} When URL is invalid or download fails
- * 
+ *
  * @example
  * ```typescript
  * const result = await downloadVideo('https://youtube.com/watch?v=...', config);
@@ -141,7 +146,7 @@ export async function downloadVideo(
 ): Promise<string> {
   // Implementation
 }
-```
+````
 
 ### README Updates
 
@@ -177,6 +182,7 @@ export async function downloadVideo(
 ### Version Numbers
 
 Follow semantic versioning:
+
 - MAJOR: Breaking changes
 - MINOR: New features
 - PATCH: Bug fixes
@@ -189,4 +195,4 @@ Follow semantic versioning:
 - Suggest improvements
 - Share success stories
 
-For more information, see the [README](./README.md) and [API Reference](./api.md). 
+For more information, see the [README](./README.md) and [API Reference](./api.md).

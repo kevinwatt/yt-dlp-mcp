@@ -1,12 +1,12 @@
 import * as path from "path";
 import type { Config } from "../config.js";
 import { sanitizeFilename } from "../config.js";
-import { 
-  _spawnPromise, 
-  validateUrl, 
-  getFormattedTimestamp, 
+import {
+  _spawnPromise,
+  validateUrl,
+  getFormattedTimestamp,
   isYouTubeUrl,
-  generateRandomFilename 
+  generateRandomFilename
 } from "./utils.js";
 
 /**
@@ -39,11 +39,11 @@ export async function downloadVideo(
   resolution: "480p" | "720p" | "1080p" | "best" = "720p"
 ): Promise<string> {
   const userDownloadsDir = config.file.downloadsDir;
-  
+
   try {
     validateUrl(url);
     const timestamp = getFormattedTimestamp();
-      
+
     let format: string;
     if (isYouTubeUrl(url)) {
       // YouTube-specific format selection
@@ -80,15 +80,16 @@ export async function downloadVideo(
 
     let outputTemplate: string;
     let expectedFilename: string;
-    
+
     try {
       // 嘗試獲取檔案名稱
       outputTemplate = path.join(
         userDownloadsDir,
         sanitizeFilename(`%(title)s [%(id)s] ${timestamp}`, config.file) + '.%(ext)s'
       );
-      
+
       expectedFilename = await _spawnPromise("yt-dlp", [
+        "--ignore-config",
         "--get-filename",
         "-f", format,
         "--output", outputTemplate,
@@ -101,10 +102,11 @@ export async function downloadVideo(
       outputTemplate = path.join(userDownloadsDir, randomFilename);
       expectedFilename = randomFilename;
     }
-    
+
     // Download with progress info
     try {
       await _spawnPromise("yt-dlp", [
+        "--ignore-config",
         "--progress",
         "--newline",
         "--no-mtime",

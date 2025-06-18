@@ -30,20 +30,22 @@ import { _spawnPromise, validateUrl, getFormattedTimestamp, isYouTubeUrl } from 
  */
 export async function downloadAudio(url: string, config: Config): Promise<string> {
   const timestamp = getFormattedTimestamp();
-  
+
   try {
     validateUrl(url);
-    
+
     const outputTemplate = path.join(
       config.file.downloadsDir,
       sanitizeFilename(`%(title)s [%(id)s] ${timestamp}`, config.file) + '.%(ext)s'
     );
 
-    const format = isYouTubeUrl(url) 
+    const format = isYouTubeUrl(url)
       ? "140/bestaudio[ext=m4a]/bestaudio"
       : "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio";
 
     await _spawnPromise("yt-dlp", [
+      "--ignore-config",
+      "--no-check-certificate",
       "--verbose",
       "--progress",
       "--newline",

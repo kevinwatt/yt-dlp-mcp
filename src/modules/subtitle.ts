@@ -28,6 +28,7 @@ export async function listSubtitles(url: string): Promise<string> {
 
   try {
     const output = await _spawnPromise('yt-dlp', [
+      '--ignore-config',
       '--list-subs',
       '--write-auto-sub',
       '--skip-download',
@@ -81,6 +82,7 @@ export async function downloadSubtitles(
 
   try {
     await _spawnPromise('yt-dlp', [
+      '--ignore-config',
       '--write-sub',
       '--write-auto-sub',
       '--sub-lang', language,
@@ -139,6 +141,7 @@ export async function downloadTranscript(
 
   try {
     await _spawnPromise('yt-dlp', [
+      '--ignore-config',
       '--skip-download',
       '--write-subs',
       '--write-auto-subs',
