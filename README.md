@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/kevinwatt-yt-dlp-mcp-badge.png)](https://mseep.ai/app/kevinwatt-yt-dlp-mcp)
+
 # yt-dlp-mcp
 
 An MCP server implementation that integrates with yt-dlp, providing video and audio content download capabilities (e.g. YouTube, Facebook, Tiktok, etc.) for LLMs.
