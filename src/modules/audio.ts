@@ -1,7 +1,7 @@
 import { readdirSync } from "fs";
 import * as path from "path";
 import type { Config } from "../config.js";
-import { sanitizeFilename } from "../config.js";
+import { sanitizeFilename, getCookieArgs } from "../config.js";
 import { _spawnPromise, validateUrl, getFormattedTimestamp, isYouTubeUrl } from "./utils.js";
 
 /**
@@ -52,6 +52,7 @@ export async function downloadAudio(url: string, config: Config): Promise<string
       "--no-mtime",
       "-f", format,
       "--output", outputTemplate,
+      ...getCookieArgs(config),
       url
     ]);
 

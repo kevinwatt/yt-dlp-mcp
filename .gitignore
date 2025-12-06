@@ -31,5 +31,5 @@ test-dist
 
 # WebStorm
 .idea/
-
+plan/
 dist/

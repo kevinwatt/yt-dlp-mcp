@@ -507,7 +507,7 @@ server.setRequestHandler(
       } else if (toolName === "ytdlp_list_subtitle_languages") {
         const validated = ListSubtitleLanguagesSchema.parse(args);
         return handleToolExecution(
-          () => listSubtitles(validated.url),
+          () => listSubtitles(validated.url, CONFIG),
           "Error listing subtitle languages"
         );
       } else if (toolName === "ytdlp_download_video_subtitles") {

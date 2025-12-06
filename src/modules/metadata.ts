@@ -1,4 +1,5 @@
 import type { Config } from "../config.js";
+import { getCookieArgs } from "../config.js";
 import {
   _spawnPromise,
   validateUrl
@@ -156,6 +157,7 @@ export async function getVideoMetadata(
     "--dump-json",
     "--no-warnings",
     "--no-check-certificate",
+    ...(_config ? getCookieArgs(_config) : []),
     url
   ];
 

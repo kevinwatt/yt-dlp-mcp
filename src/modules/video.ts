@@ -1,6 +1,6 @@
 import * as path from "path";
 import type { Config } from "../config.js";
-import { sanitizeFilename } from "../config.js";
+import { sanitizeFilename, getCookieArgs } from "../config.js";
 import {
   _spawnPromise,
   validateUrl,
@@ -102,13 +102,15 @@ export async function downloadVideo(
         sanitizeFilename(`%(title)s [%(id)s] ${timestamp}`, config.file) + '.%(ext)s'
       );
 
-      expectedFilename = await _spawnPromise("yt-dlp", [
+      const getFilenameArgs = [
         "--ignore-config",
         "--get-filename",
         "-f", format,
         "--output", outputTemplate,
+        ...getCookieArgs(config),
         url
-      ]);
+      ];
+      expectedFilename = await _spawnPromise("yt-dlp", getFilenameArgs);
       expectedFilename = expectedFilename.trim();
     } catch (error) {
       // 如果無法獲取檔案名稱，使用隨機檔案名
@@ -124,7 +126,8 @@ export async function downloadVideo(
       "--newline",
       "--no-mtime",
       "-f", format,
-      "--output", outputTemplate
+      "--output", outputTemplate,
+      ...getCookieArgs(config)
     ];
 
     // Add trimming parameters if provided

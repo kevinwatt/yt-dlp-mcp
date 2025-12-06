@@ -1,9 +1,20 @@
 import * as os from "os";
 import * as path from "path";
+import * as fs from "fs";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
+
+/**
+ * Valid browser names for cookie extraction
+ */
+export const VALID_BROWSERS = [
+  'brave', 'chrome', 'chromium', 'edge',
+  'firefox', 'opera', 'safari', 'vivaldi', 'whale'
+] as const;
+
+export type ValidBrowser = typeof VALID_BROWSERS[number];
 
 /**
  * Configuration type definitions
@@ -41,6 +52,13 @@ export interface Config {
     characterLimit: number;
     maxTranscriptLength: number;
   };
+  // Cookie configuration for authenticated access
+  cookies: {
+    // Path to Netscape format cookie file
+    file?: string;
+    // Browser name and settings (format: BROWSER[:PROFILE][::CONTAINER])
+    fromBrowser?: string;
+  };
 }
 
 /**
@@ -73,6 +91,10 @@ const defaultConfig: Config = {
   limits: {
     characterLimit: 25000,      // Standard MCP character limit
     maxTranscriptLength: 50000  // Transcripts can be larger
+  },
+  cookies: {
+    file: undefined,
+    fromBrowser: undefined
   }
 };
 
@@ -123,6 +145,18 @@ function loadEnvConfig(): DeepPartial<Config> {
     envConfig.download = downloadConfig;
   }
 
+  // Cookie configuration
+  const cookiesConfig: Partial<Config['cookies']> = {};
+  if (process.env.YTDLP_COOKIES_FILE) {
+    cookiesConfig.file = process.env.YTDLP_COOKIES_FILE;
+  }
+  if (process.env.YTDLP_COOKIES_FROM_BROWSER) {
+    cookiesConfig.fromBrowser = process.env.YTDLP_COOKIES_FROM_BROWSER;
+  }
+  if (Object.keys(cookiesConfig).length > 0) {
+    envConfig.cookies = cookiesConfig;
+  }
+
   return envConfig;
 }
 
@@ -159,6 +193,34 @@ function validateConfig(config: Config): void {
   if (!/^[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?$/i.test(config.download.defaultSubtitleLanguage)) {
     throw new Error('Invalid defaultSubtitleLanguage');
   }
+
+  // Validate cookies (lenient - warnings only)
+  validateCookiesConfig(config);
+}
+
+/**
+ * Validate cookie configuration (lenient - logs warnings but doesn't throw)
+ */
+function validateCookiesConfig(config: Config): void {
+  // Validate cookie file path
+  if (config.cookies.file) {
+    if (!fs.existsSync(config.cookies.file)) {
+      console.warn(`[yt-dlp-mcp] Cookie file not found: ${config.cookies.file}, continuing without cookies`);
+      config.cookies.file = undefined;
+    }
+  }
+
+  // Validate browser name only
+  // Format: BROWSER[:PROFILE_OR_PATH][::CONTAINER]
+  // We only validate browser name; yt-dlp will validate path/container
+  if (config.cookies.fromBrowser) {
+    const browserName = config.cookies.fromBrowser.split(':')[0].toLowerCase();
+
+    if (!VALID_BROWSERS.includes(browserName as ValidBrowser)) {
+      console.warn(`[yt-dlp-mcp] Invalid browser name: ${browserName}. Valid browsers: ${VALID_BROWSERS.join(', ')}`);
+      config.cookies.fromBrowser = undefined;
+    }
+  }
 }
 
 /**
@@ -188,6 +250,10 @@ function mergeConfig(base: Config, override: DeepPartial<Config>): Config {
     limits: {
       characterLimit: override.limits?.characterLimit || base.limits.characterLimit,
       maxTranscriptLength: override.limits?.maxTranscriptLength || base.limits.maxTranscriptLength
+    },
+    cookies: {
+      file: override.cookies?.file ?? base.cookies.file,
+      fromBrowser: override.cookies?.fromBrowser ?? base.cookies.fromBrowser
     }
   };
 }
@@ -223,6 +289,27 @@ export function sanitizeFilename(filename: string, config: Config['file']): stri
   }
   
   return safe;
+}
+
+/**
+ * Get cookie-related yt-dlp arguments
+ * Priority: file > fromBrowser
+ * @param config Configuration object
+ * @returns Array of yt-dlp arguments for cookie handling
+ */
+export function getCookieArgs(config: Config): string[] {
+  // Guard against missing cookies config
+  if (!config.cookies) {
+    return [];
+  }
+  // Cookie file takes precedence over browser extraction
+  if (config.cookies.file) {
+    return ['--cookies', config.cookies.file];
+  }
+  if (config.cookies.fromBrowser) {
+    return ['--cookies-from-browser', config.cookies.fromBrowser];
+  }
+  return [];
 }
 
 // Export current configuration instance

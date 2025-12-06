@@ -287,6 +287,7 @@ Get human-readable metadata summary
 
 - **[API Reference](./docs/api.md)** - Detailed tool documentation
 - **[Configuration](./docs/configuration.md)** - Environment variables and settings
+- **[Cookie Configuration](./docs/cookies.md)** - Authentication and private video access
 - **[Error Handling](./docs/error-handling.md)** - Common errors and solutions
 - **[Contributing](./docs/contributing.md)** - How to contribute
 
@@ -312,6 +313,38 @@ YTDLP_CHARACTER_LIMIT=25000
 # Max transcript length (default: 50000)
 YTDLP_MAX_TRANSCRIPT_LENGTH=50000
 ```
+
+### Cookie Configuration
+
+To access private videos, age-restricted content, or avoid rate limits, configure cookies:
+
+```bash
+# Extract cookies from browser (recommended)
+YTDLP_COOKIES_FROM_BROWSER=chrome
+
+# Or use a cookie file
+YTDLP_COOKIES_FILE=/path/to/cookies.txt
+```
+
+**MCP Configuration with cookies:**
+
+```json
+{
+  "mcpServers": {
+    "yt-dlp": {
+      "command": "npx",
+      "args": ["-y", "@kevinwatt/yt-dlp-mcp"],
+      "env": {
+        "YTDLP_COOKIES_FROM_BROWSER": "chrome"
+      }
+    }
+  }
+}
+```
+
+Supported browsers: `brave`, `chrome`, `chromium`, `edge`, `firefox`, `opera`, `safari`, `vivaldi`, `whale`
+
+See [Cookie Configuration Guide](./docs/cookies.md) for detailed setup instructions.
 
 ---
 

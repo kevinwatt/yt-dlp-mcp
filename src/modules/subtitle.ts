@@ -2,39 +2,43 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import type { Config } from '../config.js';
+import { getCookieArgs } from '../config.js';
 import { _spawnPromise, validateUrl, cleanSubtitleToTranscript } from "./utils.js";
 
 /**
  * Lists all available subtitles for a video.
- * 
+ *
  * @param url - The URL of the video
+ * @param config - Configuration object (optional, for cookie support)
  * @returns Promise resolving to a string containing the list of available subtitles
  * @throws {Error} When URL is invalid or subtitle listing fails
- * 
+ *
  * @example
  * ```typescript
  * try {
- *   const subtitles = await listSubtitles('https://youtube.com/watch?v=...');
+ *   const subtitles = await listSubtitles('https://youtube.com/watch?v=...', config);
  *   console.log('Available subtitles:', subtitles);
  * } catch (error) {
  *   console.error('Failed to list subtitles:', error);
  * }
  * ```
  */
-export async function listSubtitles(url: string): Promise<string> {
+export async function listSubtitles(url: string, config?: Config): Promise<string> {
   if (!validateUrl(url)) {
     throw new Error('Invalid or unsupported URL format. Please provide a valid video URL (e.g., https://youtube.com/watch?v=...)');
   }
 
   try {
-    const output = await _spawnPromise('yt-dlp', [
+    const args = [
       '--ignore-config',
       '--list-subs',
       '--write-auto-sub',
       '--skip-download',
       '--verbose',
+      ...(config ? getCookieArgs(config) : []),
       url
-    ]);
+    ];
+    const output = await _spawnPromise('yt-dlp', args);
     return output;
   } catch (error) {
     if (error instanceof Error) {
@@ -99,6 +103,7 @@ export async function downloadSubtitles(
       '--sub-lang', language,
       '--skip-download',
       '--output', path.join(tempDir, '%(title)s.%(ext)s'),
+      ...getCookieArgs(config),
       url
     ]);
 
@@ -179,6 +184,7 @@ export async function downloadTranscript(
       '--sub-format', 'ttml',
       '--convert-subs', 'srt',
       '--output', path.join(tempDir, 'transcript.%(ext)s'),
+      ...getCookieArgs(config),
       url
     ]);
 

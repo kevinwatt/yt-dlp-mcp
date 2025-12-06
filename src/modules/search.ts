@@ -1,5 +1,6 @@
 import { _spawnPromise } from "./utils.js";
 import type { Config } from "../config.js";
+import { getCookieArgs } from "../config.js";
 
 /**
  * YouTube search result interface
@@ -53,11 +54,12 @@ export async function searchVideos(
     const args = [
       searchQuery,
       "--print", "title",
-      "--print", "id", 
+      "--print", "id",
       "--print", "uploader",
       "--print", "duration",
       "--no-download",
-      "--quiet"
+      "--quiet",
+      ...getCookieArgs(config)
     ];
 
     const result = await _spawnPromise(config.tools.required[0], args);
