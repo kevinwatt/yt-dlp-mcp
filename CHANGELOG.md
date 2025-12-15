@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Add Claude Code settings (.claude/, CLAUDE.md) to .gitignore
 - Add development guideline to always update CHANGELOG.md
+- Move integration test scripts to `tests/` directory for cleaner root
 
 ---
 
