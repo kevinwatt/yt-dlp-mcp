@@ -29,6 +29,9 @@ node_modules
 lib
 test-dist
 
+# Claude Code
+.claude/
+CLAUDE.md
 # WebStorm
 .idea/
 plan/

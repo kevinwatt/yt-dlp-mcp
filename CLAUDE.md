@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Guidelines
+
+- **Always update CHANGELOG.md** when making changes to the codebase
+
 ## Development Commands
 
 ### Build and Prepare
