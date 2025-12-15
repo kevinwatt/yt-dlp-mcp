@@ -91,24 +91,113 @@ Integrate yt-dlp with Claude, Dive, and other MCP-compatible AI systems. Downloa
 </tr>
 </table>
 
-### Quick Setup with Dive Desktop
+### Getting Started
 
-1. Open [Dive Desktop](https://github.com/OpenAgentPlatform/Dive)
-2. Click **"+ Add MCP Server"**
-3. Paste this configuration:
+Add the following config to your MCP client:
 
 ```json
 {
   "mcpServers": {
     "yt-dlp": {
       "command": "npx",
-      "args": ["-y", "@kevinwatt/yt-dlp-mcp"]
+      "args": ["-y", "@kevinwatt/yt-dlp-mcp@latest"]
     }
   }
 }
 ```
 
-4. Click **"Save"** and you're ready! 🎉
+### MCP Client Configuration
+
+<details open>
+<summary><strong>Dive</strong></summary>
+
+1. Open [Dive Desktop](https://github.com/OpenAgentPlatform/Dive)
+2. Click **"+ Add MCP Server"**
+3. Paste the config provided above
+4. Click **"Save"** and you're ready!
+
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
+
+Use the Claude Code CLI to add the yt-dlp MCP server ([guide](https://docs.anthropic.com/en/docs/claude-code/mcp)):
+
+```bash
+claude mcp add yt-dlp npx @kevinwatt/yt-dlp-mcp@latest
+```
+
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
+
+Add to your `claude_desktop_config.json`:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "yt-dlp": {
+      "command": "npx",
+      "args": ["-y", "@kevinwatt/yt-dlp-mcp@latest"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
+
+Go to `Cursor Settings` -> `MCP` -> `New MCP Server`. Use the config provided above.
+
+</details>
+
+<details>
+<summary><strong>VS Code / Copilot</strong></summary>
+
+Install via the VS Code CLI:
+
+```bash
+code --add-mcp '{"name":"yt-dlp","command":"npx","args":["-y","@kevinwatt/yt-dlp-mcp@latest"]}'
+```
+
+Or follow the [MCP install guide](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_add-an-mcp-server) with the standard config from above.
+
+</details>
+
+<details>
+<summary><strong>Windsurf</strong></summary>
+
+Follow the [configure MCP guide](https://docs.windsurf.com/windsurf/cascade/mcp#mcp-config-json) using the standard config from above.
+
+</details>
+
+<details>
+<summary><strong>Cline</strong></summary>
+
+Follow [Cline MCP configuration guide](https://docs.cline.bot/mcp/configuring-mcp-servers) and use the config provided above.
+
+</details>
+
+<details>
+<summary><strong>Warp</strong></summary>
+
+Go to `Settings | AI | Manage MCP Servers` -> `+ Add` to [add an MCP Server](https://docs.warp.dev/knowledge-and-collaboration/mcp#adding-an-mcp-server). Use the config provided above.
+
+</details>
+
+<details>
+<summary><strong>JetBrains AI Assistant</strong></summary>
+
+Go to `Settings | Tools | AI Assistant | Model Context Protocol (MCP)` -> `Add`. Use the config provided above.
+
+</details>
 
 ### Manual Installation
 
@@ -333,7 +422,7 @@ YTDLP_COOKIES_FILE=/path/to/cookies.txt
   "mcpServers": {
     "yt-dlp": {
       "command": "npx",
-      "args": ["-y", "@kevinwatt/yt-dlp-mcp"],
+      "args": ["-y", "@kevinwatt/yt-dlp-mcp@latest"],
       "env": {
         "YTDLP_COOKIES_FROM_BROWSER": "chrome"
       }
