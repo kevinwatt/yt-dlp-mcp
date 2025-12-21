@@ -5,11 +5,14 @@ import { getVideoComments, getVideoCommentsSummary } from '../modules/comments.j
 import type { CommentsResponse } from '../modules/comments.js';
 import { CONFIG } from '../config.js';
 
-// Set Python environment
-process.env.PYTHONPATH = '';
-process.env.PYTHONHOME = '';
+// Clear Python environment to avoid yt-dlp issues
+delete process.env.PYTHONPATH;
+delete process.env.PYTHONHOME;
 
-describe('Video Comments Extraction', () => {
+// Integration tests require network access - opt-in via RUN_INTEGRATION_TESTS=1
+const RUN_INTEGRATION = process.env.RUN_INTEGRATION_TESTS === '1';
+
+(RUN_INTEGRATION ? describe : describe.skip)('Video Comments Extraction', () => {
   // Using a popular video that should have comments enabled
   const testUrl = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
 
@@ -93,10 +96,8 @@ describe('Video Comments Extraction', () => {
       const summary = await getVideoCommentsSummary(testUrl, 3, CONFIG);
 
       // Count occurrences of "Author:" to verify number of comments
-      const authorMatches = summary.match(/Author:/g);
-      if (authorMatches) {
-        expect(authorMatches.length).toBeLessThanOrEqual(3);
-      }
+      const authorMatches = summary.match(/Author:/g) ?? [];
+      expect(authorMatches.length).toBeLessThanOrEqual(3);
     }, 60000);
 
     test('should throw error for invalid URL', async () => {
