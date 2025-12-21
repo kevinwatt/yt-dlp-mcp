@@ -19,6 +19,7 @@ import { downloadAudio } from "./modules/audio.js";
 import { listSubtitles, downloadSubtitles, downloadTranscript } from "./modules/subtitle.js";
 import { searchVideos } from "./modules/search.js";
 import { getVideoMetadata, getVideoMetadataSummary } from "./modules/metadata.js";
+import { getVideoComments, getVideoCommentsSummary } from "./modules/comments.js";
 
 const VERSION = '0.7.0';
 
@@ -112,6 +113,33 @@ const GetVideoMetadataSummarySchema = z.object({
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
+}).strict();
+
+const GetVideoCommentsSchema = z.object({
+  url: z.string()
+    .url("Must be a valid URL")
+    .describe("URL of the video"),
+  maxComments: z.coerce.number()
+    .int("Must be a whole number")
+    .min(1, "Must return at least 1 comment")
+    .max(100, "Cannot exceed 100 comments")
+    .default(20)
+    .describe("Maximum number of comments to retrieve (1-100, default: 20)"),
+  sortOrder: z.enum(["top", "new"])
+    .default("top")
+    .describe("Sort order: 'top' for most liked, 'new' for newest (default: 'top')"),
+}).strict();
+
+const GetVideoCommentsSummarySchema = z.object({
+  url: z.string()
+    .url("Must be a valid URL")
+    .describe("URL of the video"),
+  maxComments: z.coerce.number()
+    .int("Must be a whole number")
+    .min(1, "Must return at least 1 comment")
+    .max(50, "Cannot exceed 50 comments for summary")
+    .default(10)
+    .describe("Maximum number of comments to include in summary (1-50, default: 10)"),
 }).strict();
 
 /**
@@ -448,6 +476,85 @@ Error Handling:
           openWorldHint: true
         }
       },
+      {
+        name: "ytdlp_get_video_comments",
+        description: `Extract comments from a video in JSON format.
+
+This tool retrieves comments from videos (primarily YouTube) using yt-dlp's comment extraction feature. Returns structured comment data including author info, likes, and timestamps.
+
+Args:
+  - url (string): Full video URL
+  - maxComments (number): Maximum comments to retrieve (1-100, default: 20)
+  - sortOrder (enum): 'top' for most liked comments, 'new' for newest (default: 'top')
+
+Returns:
+  JSON object with:
+  - count: Number of comments returned
+  - has_more: Whether more comments are available
+  - comments: Array of comment objects containing:
+    - id: Comment identifier
+    - text: Comment content
+    - author: Author name
+    - author_id: Author channel ID
+    - author_is_uploader: Whether author is video creator
+    - author_is_verified: Whether author is verified
+    - like_count: Number of likes
+    - is_pinned: Whether comment is pinned
+    - parent: Parent comment ID (for replies)
+    - timestamp: Unix timestamp
+    - time_text: Human-readable time (e.g., "2 days ago")
+
+Use when: You need structured comment data for analysis or display
+Don't use when: You want a quick readable overview (use ytdlp_get_video_comments_summary)
+
+Note: Comment extraction is primarily supported for YouTube. Other platforms may have limited support.
+
+Error Handling:
+  - "Video is unavailable or private" for inaccessible content
+  - "Comments are disabled" for videos with comments turned off
+  - "Requires authentication" for age-restricted content (configure cookies)
+  - "Unsupported platform" for non-YouTube URLs`,
+        inputSchema: GetVideoCommentsSchema,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true
+        }
+      },
+      {
+        name: "ytdlp_get_video_comments_summary",
+        description: `Get a human-readable summary of video comments.
+
+This tool extracts comments and formats them into an easy-to-read summary. Perfect for quick overview of audience reactions and popular comments.
+
+Args:
+  - url (string): Full video URL
+  - maxComments (number): Maximum comments to include (1-50, default: 10)
+
+Returns:
+  Formatted text summary with:
+  - Comment author with indicators ([UPLOADER], [VERIFIED], [PINNED])
+  - Time posted (e.g., "2 days ago")
+  - Like count
+  - Comment text (truncated to 300 chars if longer)
+  - Reply indicators
+
+Use when: You want a quick, readable overview of video comments
+Don't use when: You need complete structured data (use ytdlp_get_video_comments)
+
+Note: Comments are sorted by "top" (most liked) by default.
+
+Error Handling:
+  - Same as ytdlp_get_video_comments (unavailable videos, disabled comments, authentication required)`,
+        inputSchema: GetVideoCommentsSummarySchema,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true
+        }
+      },
     ],
   };
 });
@@ -493,6 +600,8 @@ server.setRequestHandler(
       endTime?: string;
       query?: string;
       maxResults?: number;
+      maxComments?: number;
+      sortOrder?: "top" | "new";
       fields?: string[];
     };
 
@@ -551,6 +660,18 @@ server.setRequestHandler(
         return handleToolExecution(
           () => getVideoMetadataSummary(validated.url, CONFIG),
           "Error generating video metadata summary"
+        );
+      } else if (toolName === "ytdlp_get_video_comments") {
+        const validated = GetVideoCommentsSchema.parse(args);
+        return handleToolExecution(
+          () => getVideoComments(validated.url, validated.maxComments, validated.sortOrder, CONFIG),
+          "Error extracting video comments"
+        );
+      } else if (toolName === "ytdlp_get_video_comments_summary") {
+        const validated = GetVideoCommentsSummarySchema.parse(args);
+        return handleToolExecution(
+          () => getVideoCommentsSummary(validated.url, validated.maxComments, CONFIG),
+          "Error generating video comments summary"
         );
       } else {
         return {

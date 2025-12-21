@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Video Comments Extraction**: New tools for extracting YouTube video comments
+  - `ytdlp_get_video_comments`: Extract comments in structured JSON format with author info, likes, timestamps, and reply threading
+  - `ytdlp_get_video_comments_summary`: Get human-readable summary of top comments
+  - Supports sorting by "top" (most liked) or "new" (newest first)
+  - Configurable comment limit (1-100 comments)
+  - Includes author verification status, pinned comments, and uploader replies
+  - Comprehensive test suite for comments functionality
+
 ### Changed
 - Add Claude Code settings (.claude/, CLAUDE.md) to .gitignore
 - Add development guideline to always update CHANGELOG.md
