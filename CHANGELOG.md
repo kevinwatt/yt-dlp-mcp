@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Claude Code settings (.claude/, CLAUDE.md) to .gitignore
 - Add development guideline to always update CHANGELOG.md
 - Move integration test scripts to `tests/` directory for cleaner root
+- Comments integration tests are now opt-in via `RUN_INTEGRATION_TESTS=1` env var for CI stability
+
+### Fixed
+- Fixed comments test Python environment handling (use `delete` instead of empty string assignment)
+- Fixed regex null coalescing in comments test for author matching
 
 ---
 
