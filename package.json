@@ -1,6 +1,6 @@
 {
   "name": "@kevinwatt/yt-dlp-mcp",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "An MCP server implementation that integrates with yt-dlp, providing video and audio content download capabilities (e.g. YouTube, Facebook, Tiktok, etc.) for LLMs.",
   "keywords": [
     "mcp",
