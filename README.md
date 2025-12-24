@@ -222,8 +222,9 @@ All tools are prefixed with `ytdlp_` to avoid naming conflicts with other MCP se
 <td><code>ytdlp_search_videos</code></td>
 <td>
 
-Search YouTube with pagination support
-- **Parameters**: `query`, `maxResults`, `offset`, `response_format`
+Search YouTube with pagination and date filtering support
+- **Parameters**: `query`, `maxResults`, `offset`, `response_format`, `uploadDateFilter`
+- **Date Filter**: `hour`, `today`, `week`, `month`, `year` (optional)
 - **Returns**: Video list with titles, channels, durations, URLs
 - **Supports**: JSON and Markdown formats
 
