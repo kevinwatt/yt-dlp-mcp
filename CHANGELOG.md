@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.8.2] - 2025-12-25
+
 ### Added
 - **Video Comments Extraction**: New tools for extracting YouTube video comments
   - `ytdlp_get_video_comments`: Extract comments in structured JSON format with author info, likes, timestamps, and reply threading
