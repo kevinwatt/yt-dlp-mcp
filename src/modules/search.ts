@@ -3,6 +3,11 @@ import type { Config } from "../config.js";
 import { getCookieArgs } from "../config.js";
 
 /**
+ * Upload date filter type
+ */
+export type UploadDateFilter = "hour" | "today" | "week" | "month" | "year";
+
+/**
  * YouTube search result interface
  */
 export interface SearchResult {
@@ -16,12 +21,25 @@ export interface SearchResult {
 }
 
 /**
+ * Map upload date filter to YouTube's sp parameter
+ * These are base64-encoded protobuf parameters
+ */
+const UPLOAD_DATE_FILTER_MAP: Record<UploadDateFilter, string> = {
+  hour: "EgIIAQ%3D%3D",   // Last hour
+  today: "EgIIAg%3D%3D",  // Today
+  week: "EgIIAw%3D%3D",   // This week
+  month: "EgIIBA%3D%3D",  // This month
+  year: "EgIIBQ%3D%3D",   // This year
+};
+
+/**
  * Search YouTube videos
  * @param query Search keywords
  * @param maxResults Maximum number of results (1-50)
  * @param offset Number of results to skip for pagination
  * @param responseFormat Output format ('json' or 'markdown')
  * @param config Configuration object
+ * @param uploadDateFilter Optional filter by upload date
  * @returns Search results formatted as string
  */
 export async function searchVideos(
@@ -29,7 +47,8 @@ export async function searchVideos(
   maxResults: number = 10,
   offset: number = 0,
   responseFormat: "json" | "markdown" = "markdown",
-  config: Config
+  config: Config,
+  uploadDateFilter?: UploadDateFilter
 ): Promise<string> {
   // Validate parameters
   if (!query || query.trim().length === 0) {
@@ -47,20 +66,42 @@ export async function searchVideos(
   const cleanQuery = query.trim();
   // Request more results to support offset
   const totalToFetch = maxResults + offset;
-  const searchQuery = `ytsearch${totalToFetch}:${cleanQuery}`;
 
   try {
-    // Use yt-dlp to search and get video information
-    const args = [
-      searchQuery,
-      "--print", "title",
-      "--print", "id",
-      "--print", "uploader",
-      "--print", "duration",
-      "--no-download",
-      "--quiet",
-      ...getCookieArgs(config)
-    ];
+    let args: string[];
+
+    if (uploadDateFilter && UPLOAD_DATE_FILTER_MAP[uploadDateFilter]) {
+      // Use YouTube URL with sp parameter for date filtering
+      const encodedQuery = encodeURIComponent(cleanQuery);
+      const spParam = UPLOAD_DATE_FILTER_MAP[uploadDateFilter];
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodedQuery}&sp=${spParam}`;
+
+      args = [
+        searchUrl,
+        "--flat-playlist",
+        "--print", "title",
+        "--print", "id",
+        "--print", "uploader",
+        "--print", "duration",
+        "--no-download",
+        "--quiet",
+        "--playlist-end", String(totalToFetch),
+        ...getCookieArgs(config)
+      ];
+    } else {
+      // Use ytsearch prefix for regular search
+      const searchQuery = `ytsearch${totalToFetch}:${cleanQuery}`;
+      args = [
+        searchQuery,
+        "--print", "title",
+        "--print", "id",
+        "--print", "uploader",
+        "--print", "duration",
+        "--no-download",
+        "--quiet",
+        ...getCookieArgs(config)
+      ];
+    }
 
     const result = await _spawnPromise(config.tools.required[0], args);
     
@@ -109,7 +150,8 @@ export async function searchVideos(
         offset: offset,
         videos: paginatedResults,
         has_more: hasMore,
-        ...(hasMore && { next_offset: offset + maxResults })
+        ...(hasMore && { next_offset: offset + maxResults }),
+        ...(uploadDateFilter && { upload_date_filter: uploadDateFilter })
       };
 
       let output = JSON.stringify(response, null, 2);
@@ -131,7 +173,18 @@ export async function searchVideos(
       return output;
     } else {
       // Markdown format
-      let output = `Found ${allResults.length} video${allResults.length > 1 ? 's' : ''} (showing ${paginatedResults.length}):\n\n`;
+      let output = `Found ${allResults.length} video${allResults.length > 1 ? 's' : ''} (showing ${paginatedResults.length})`;
+      if (uploadDateFilter) {
+        const filterLabels: Record<UploadDateFilter, string> = {
+          hour: "last hour",
+          today: "today",
+          week: "this week",
+          month: "this month",
+          year: "this year"
+        };
+        output += ` from ${filterLabels[uploadDateFilter]}`;
+      }
+      output += `:\n\n`;
 
       paginatedResults.forEach((video, index) => {
         output += `${offset + index + 1}. **${video.title}**\n`;

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable comment limit (1-100 comments)
   - Includes author verification status, pinned comments, and uploader replies
   - Comprehensive test suite for comments functionality
+- **Upload Date Filter**: New `uploadDateFilter` parameter for `ytdlp_search_videos` tool ([#21](https://github.com/kevinwatt/yt-dlp-mcp/issues/21))
+  - Filter search results by upload date: `hour`, `today`, `week`, `month`, `year`
+  - Uses YouTube's native date filtering for efficient searches
+  - Optional parameter - defaults to no filtering (all dates)
 
 ### Changed
 - Add Claude Code settings (.claude/, CLAUDE.md) to .gitignore
@@ -23,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comments integration tests are now opt-in via `RUN_INTEGRATION_TESTS=1` env var for CI stability
 
 ### Fixed
+- Fixed `validateUrl()` return value not being checked in `audio.ts`, `metadata.ts`, and `video.ts`
 - Fixed comments test Python environment handling (use `delete` instead of empty string assignment)
 - Fixed regex null coalescing in comments test for author matching
 

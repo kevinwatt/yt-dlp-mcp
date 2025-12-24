@@ -29,6 +29,15 @@ enum ResponseFormat {
   MARKDOWN = "markdown"
 }
 
+// Upload date filter enum for YouTube search
+enum UploadDateFilter {
+  HOUR = "hour",
+  TODAY = "today",
+  WEEK = "week",
+  MONTH = "month",
+  YEAR = "year"
+}
+
 // Zod Schemas for Input Validation
 const SearchVideosSchema = z.object({
   query: z.string()
@@ -49,6 +58,9 @@ const SearchVideosSchema = z.object({
   response_format: z.nativeEnum(ResponseFormat)
     .default(ResponseFormat.MARKDOWN)
     .describe("Output format: 'json' for structured data, 'markdown' for human-readable"),
+  uploadDateFilter: z.nativeEnum(UploadDateFilter)
+    .optional()
+    .describe("Optional filter by upload date: 'hour', 'today', 'week', 'month', 'year'. If omitted, returns videos from all dates."),
 }).strict();
 
 const ListSubtitleLanguagesSchema = z.object({
@@ -222,21 +234,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "ytdlp_search_videos",
-        description: `Search for videos on YouTube using keywords with pagination support.
+        description: `Search for videos on YouTube using keywords with pagination and date filtering support.
 
-This tool queries YouTube's search API and returns matching videos with titles, uploaders, durations, and URLs. Supports pagination for browsing through large result sets.
+This tool queries YouTube's search API and returns matching videos with titles, uploaders, durations, and URLs. Supports pagination for browsing through large result sets and filtering by upload date.
 
 Args:
   - query (string): Search keywords (e.g., "machine learning tutorial", "beethoven symphony")
   - maxResults (number): Number of results to return (1-50, default: 10)
   - offset (number): Skip first N results for pagination (default: 0)
   - response_format (enum): 'json' for structured data, 'markdown' for human-readable (default: 'markdown')
+  - uploadDateFilter (enum, optional): Filter by upload date - 'hour' (last hour), 'today', 'week' (this week), 'month' (this month), 'year' (this year). Default: no filter (all dates)
 
 Returns:
   Markdown format: Formatted list with video details and pagination info
-  JSON format: { total, count, offset, videos: [{title, id, url, uploader, duration}], has_more, next_offset }
+  JSON format: { total, count, offset, videos: [{title, id, url, uploader, duration}], has_more, next_offset, upload_date_filter }
 
-Use when: Finding videos by topic, creator name, or keywords
+Use when: Finding videos by topic, creator name, or keywords; filtering recent uploads
 Don't use when: You already have the video URL (use ytdlp_get_video_metadata instead)
 
 Error Handling:
@@ -603,6 +616,7 @@ server.setRequestHandler(
       maxComments?: number;
       sortOrder?: "top" | "new";
       fields?: string[];
+      uploadDateFilter?: string;
     };
 
     // Validate inputs with Zod schemas
@@ -610,7 +624,7 @@ server.setRequestHandler(
       if (toolName === "ytdlp_search_videos") {
         const validated = SearchVideosSchema.parse(args);
         return handleToolExecution(
-          () => searchVideos(validated.query, validated.maxResults, validated.offset, validated.response_format, CONFIG),
+          () => searchVideos(validated.query, validated.maxResults, validated.offset, validated.response_format, CONFIG, validated.uploadDateFilter),
           "Error searching videos"
         );
       } else if (toolName === "ytdlp_list_subtitle_languages") {
