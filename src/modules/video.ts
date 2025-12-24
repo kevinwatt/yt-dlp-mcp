@@ -54,8 +54,11 @@ export async function downloadVideo(
 ): Promise<string> {
   const userDownloadsDir = config.file.downloadsDir;
 
+  if (!validateUrl(url)) {
+    throw new Error("Invalid or unsupported URL format");
+  }
+
   try {
-    validateUrl(url);
     const timestamp = getFormattedTimestamp();
 
     let format: string;

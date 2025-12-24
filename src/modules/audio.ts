@@ -31,9 +31,11 @@ import { _spawnPromise, validateUrl, getFormattedTimestamp, isYouTubeUrl } from 
 export async function downloadAudio(url: string, config: Config): Promise<string> {
   const timestamp = getFormattedTimestamp();
 
-  try {
-    validateUrl(url);
+  if (!validateUrl(url)) {
+    throw new Error("Invalid or unsupported URL format");
+  }
 
+  try {
     const outputTemplate = path.join(
       config.file.downloadsDir,
       sanitizeFilename(`%(title)s [%(id)s] ${timestamp}`, config.file) + '.%(ext)s'

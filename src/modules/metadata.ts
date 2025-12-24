@@ -151,7 +151,9 @@ export async function getVideoMetadata(
   _config?: Config
 ): Promise<string> {
   // Validate the URL
-  validateUrl(url);
+  if (!validateUrl(url)) {
+    throw new Error("Invalid or unsupported URL format");
+  }
 
   const args = [
     "--dump-json",
