@@ -408,6 +408,10 @@ YTDLP_MAX_TRANSCRIPT_LENGTH=50000
 
 To access private videos, age-restricted content, or avoid rate limits, configure cookies:
 
+> ⚠️ **Important**: Cookie authentication requires a JavaScript runtime (deno) to be installed. When using cookies, YouTube uses authenticated API endpoints that require JavaScript challenge solving. Without deno, downloads will fail with "n challenge solving failed" error.
+>
+> Install deno: https://docs.deno.com/runtime/getting_started/installation/
+
 ```bash
 # Extract cookies from browser (recommended)
 YTDLP_COOKIES_FROM_BROWSER=chrome
