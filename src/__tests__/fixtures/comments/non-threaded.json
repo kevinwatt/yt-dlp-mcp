@@ -1,0 +1,18 @@
+[
+  {
+    "id": "n1",
+    "text": "First flat comment",
+    "author": "Alpha",
+    "time_text": "today"
+  },
+  {
+    "id": "n2",
+    "text": "Second flat comment",
+    "author": "Beta"
+  },
+  {
+    "id": "n3",
+    "text": "Third flat comment",
+    "author": "Gamma"
+  }
+]

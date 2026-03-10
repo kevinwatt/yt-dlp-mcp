@@ -1,180 +1,205 @@
-// @ts-nocheck
 // @jest-environment node
-import { describe, test, expect, beforeAll } from '@jest/globals';
-import { getVideoComments, getVideoCommentsSummary } from '../modules/comments.js';
-import type { CommentsResponse } from '../modules/comments.js';
-import { CONFIG } from '../config.js';
+import { describe, test, expect } from "@jest/globals";
+import { readFileSync } from "fs";
+import {
+  buildCommentExtractorArgs,
+  formatCommentsOutput,
+  formatCommentsSummary,
+  prepareComments,
+  resolveCommentRequestOptions,
+} from "../modules/comments-core.js";
+import { getVideoComments, getVideoCommentsSummary } from "../modules/comments.js";
+import type {
+  FlatCommentsResponse,
+  ThreadedCommentsResponse,
+} from "../modules/comments.js";
+import { CONFIG } from "../config.js";
 
-// Clear Python environment to avoid yt-dlp issues
 delete process.env.PYTHONPATH;
 delete process.env.PYTHONHOME;
 
-// Integration tests require network access - opt-in via RUN_INTEGRATION_TESTS=1
-const RUN_INTEGRATION = process.env.RUN_INTEGRATION_TESTS === '1';
+const RUN_INTEGRATION = process.env.RUN_INTEGRATION_TESTS === "1";
+const sourceInfo = {
+  sourceId: "vid-123",
+  title: "Sample Video",
+  sourceUrl: "https://example.com/video",
+  extractor: "YouTube",
+  generatedAtUtc: "2026-03-11T00:00:00.000Z",
+};
 
-(RUN_INTEGRATION ? describe : describe.skip)('Video Comments Extraction', () => {
-  // Using a popular video that should have comments enabled
-  const testUrl = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
+function loadFixture<T>(filename: string): T {
+  const url = new URL(`./fixtures/comments/${filename}`, import.meta.url);
+  return JSON.parse(readFileSync(url, "utf-8")) as T;
+}
 
-  describe('getVideoComments', () => {
-    test('should extract comments from YouTube video', async () => {
-      const commentsJson = await getVideoComments(testUrl, 5, 'top', CONFIG);
-      const data: CommentsResponse = JSON.parse(commentsJson);
+function loadTextFixture(filename: string): string {
+  const url = new URL(`./fixtures/comments/${filename}`, import.meta.url);
+  return readFileSync(url, "utf-8");
+}
 
-      // Verify response structure
-      expect(data).toHaveProperty('count');
-      expect(data).toHaveProperty('has_more');
-      expect(data).toHaveProperty('comments');
-      expect(Array.isArray(data.comments)).toBe(true);
-      expect(data.count).toBeGreaterThan(0);
-      expect(data.count).toBeLessThanOrEqual(5);
-    }, 60000);
+describe("comments-core", () => {
+  const threadedFixture = loadFixture<unknown[]>("youtube-threaded.json");
+  const nonThreadedFixture = loadFixture<unknown[]>("non-threaded.json");
 
-    test('should return comments with expected fields', async () => {
-      const commentsJson = await getVideoComments(testUrl, 3, 'top', CONFIG);
-      const data: CommentsResponse = JSON.parse(commentsJson);
+  test("builds full extractor args with reply and depth controls", () => {
+    const args = buildCommentExtractorArgs(resolveCommentRequestOptions({
+      maxComments: 20,
+      sortOrder: "new",
+      maxParents: 10,
+      maxReplies: 8,
+      maxRepliesPerThread: 3,
+      maxDepth: 4,
+    }));
 
-      if (data.comments.length > 0) {
-        const comment = data.comments[0];
+    expect(args).toBe("youtube:comment_sort=new;max_comments=20,10,8,3,4");
+  });
 
-        // These fields should typically be present
-        expect(comment).toHaveProperty('text');
-        expect(comment).toHaveProperty('author');
+  test("normalizes replies, drops duplicates, and restores time_text", () => {
+    const prepared = prepareComments(threadedFixture);
 
-        // Verify text is a string
-        if (comment.text !== undefined) {
-          expect(typeof comment.text).toBe('string');
-        }
-        if (comment.author !== undefined) {
-          expect(typeof comment.author).toBe('string');
-        }
-      }
-    }, 60000);
+    expect(prepared.detectedCount).toBe(7);
+    expect(prepared.orphanCommentIds).toEqual(["orphan-1", "self-1"]);
+    expect(prepared.hasThreading).toBe(true);
 
-    test('should respect maxComments parameter', async () => {
-      const commentsJson = await getVideoComments(testUrl, 3, 'top', CONFIG);
-      const data: CommentsResponse = JSON.parse(commentsJson);
+    const rootComment = prepared.flatComments.find((comment) => comment.id === "c1");
+    const replyComment = prepared.flatComments.find((comment) => comment.id === "r1");
+    const nestedReply = prepared.flatComments.find((comment) => comment.id === "r2");
+    const orphanReply = prepared.flatComments.find((comment) => comment.id === "orphan-1");
 
-      expect(data.comments.length).toBeLessThanOrEqual(3);
-    }, 60000);
+    expect(rootComment).toMatchObject({ parent: "root", depth: 0, reply_count: 1 });
+    expect(replyComment).toMatchObject({ parent: "c1", depth: 1, reply_count: 1, time_text: "1 day ago" });
+    expect(nestedReply).toMatchObject({ parent: "r1", depth: 2, reply_count: 0 });
+    expect(orphanReply).toMatchObject({ parent: "root", depth: 0, reply_count: 0 });
+  });
 
-    test('should support different sort orders', async () => {
-      // Just verify both sort orders work without error
-      const topComments = await getVideoComments(testUrl, 2, 'top', CONFIG);
-      const topData: CommentsResponse = JSON.parse(topComments);
-      expect(topData).toHaveProperty('comments');
+  test("returns backward-compatible flat json with reply metadata", () => {
+    const json = formatCommentsOutput(
+      threadedFixture,
+      sourceInfo,
+      resolveCommentRequestOptions({ maxComments: 20 })
+    );
+    const data = JSON.parse(json) as FlatCommentsResponse;
 
-      const newComments = await getVideoComments(testUrl, 2, 'new', CONFIG);
-      const newData: CommentsResponse = JSON.parse(newComments);
-      expect(newData).toHaveProperty('comments');
-    }, 90000);
+    expect(data.count).toBe(7);
+    expect(data.root_threads).toBe(4);
+    expect(data.reply_comments).toBe(3);
+    expect(data.orphan_comments).toBe(2);
+    expect(data.has_more).toBe(false);
+    expect(data.comments[1]).toMatchObject({
+      id: "r1",
+      parent: "c1",
+      depth: 1,
+      reply_count: 1,
+      time_text: "1 day ago",
+    });
+  });
 
-    test('should throw error for invalid URL', async () => {
-      await expect(getVideoComments('invalid-url', 5, 'top', CONFIG)).rejects.toThrow();
+  test("returns threaded json with nested replies", () => {
+    const json = formatCommentsOutput(
+      threadedFixture,
+      sourceInfo,
+      resolveCommentRequestOptions({ maxComments: 20, view: "threaded" })
+    );
+    const data = JSON.parse(json) as ThreadedCommentsResponse;
+
+    expect(data.count).toBe(7);
+    expect(data.root_threads).toBe(4);
+    expect(data.comments[0].id).toBe("c1");
+    expect(data.comments[0].replies[0].id).toBe("r1");
+    expect(data.comments[0].replies[0].replies[0].id).toBe("r2");
+    expect(data.comments[3].replies[0].id).toBe("r3");
+  });
+
+  test("renders stable markdown_tree output with thread blocks", () => {
+    const markdown = formatCommentsOutput(
+      threadedFixture,
+      sourceInfo,
+      resolveCommentRequestOptions({
+        maxComments: 20,
+        view: "threaded",
+        responseFormat: "markdown_tree",
+      })
+    );
+
+    expect(markdown).toBe(loadTextFixture("threaded-markdown.md"));
+  });
+
+  test("truncates threaded json by whole root threads", () => {
+    const fullJson = formatCommentsOutput(
+      threadedFixture,
+      sourceInfo,
+      resolveCommentRequestOptions({ maxComments: 20, view: "threaded" })
+    );
+    const truncatedJson = formatCommentsOutput(
+      threadedFixture,
+      sourceInfo,
+      resolveCommentRequestOptions({ maxComments: 20, view: "threaded" }),
+      fullJson.length - 1
+    );
+
+    const fullData = JSON.parse(fullJson) as ThreadedCommentsResponse;
+    const truncatedData = JSON.parse(truncatedJson) as ThreadedCommentsResponse;
+
+    expect(truncatedData._truncated).toBe(true);
+    expect(truncatedData.has_more).toBe(true);
+    expect(truncatedData.root_threads).toBeLessThan(fullData.root_threads);
+    expect(truncatedData.comments[truncatedData.comments.length - 1]?.parent).toBe("root");
+  });
+
+  test("gracefully degrades to root-only threads when parent metadata is missing", () => {
+    const prepared = prepareComments(nonThreadedFixture);
+    const json = formatCommentsOutput(
+      nonThreadedFixture,
+      sourceInfo,
+      resolveCommentRequestOptions({ maxComments: 10, view: "threaded" })
+    );
+    const data = JSON.parse(json) as ThreadedCommentsResponse;
+
+    expect(prepared.hasThreading).toBe(false);
+    expect(data.root_threads).toBe(3);
+    expect(data.reply_comments).toBe(0);
+    expect(data.comments.every((comment) => comment.replies.length === 0)).toBe(true);
+  });
+
+  test("renders threaded summary with grouped replies", () => {
+    const summary = formatCommentsSummary(threadedFixture, {
+      maxComments: 20,
+      view: "threaded",
     });
 
-    test('should throw error for unsupported URL', async () => {
-      await expect(getVideoComments('https://example.com/video', 5, 'top', CONFIG)).rejects.toThrow();
-    }, 30000);
+    expect(summary).toContain("Thread 1");
+    expect(summary).toContain("Reply: Bob (1 day ago)");
+    expect(summary).not.toContain("Reply to comment");
   });
+});
 
-  describe('getVideoCommentsSummary', () => {
-    test('should generate human-readable summary', async () => {
-      const summary = await getVideoCommentsSummary(testUrl, 5, CONFIG);
+(RUN_INTEGRATION ? describe : describe.skip)("comments integration", () => {
+  const testUrl = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
 
-      expect(typeof summary).toBe('string');
-      expect(summary.length).toBeGreaterThan(0);
+  test("extracts threaded comments from YouTube", async () => {
+    const commentsJson = await getVideoComments(testUrl, 5, "top", CONFIG, {
+      view: "threaded",
+      maxDepth: 2,
+    });
+    const data = JSON.parse(commentsJson) as ThreadedCommentsResponse;
 
-      // Should contain header
-      expect(summary).toContain('Video Comments');
+    expect(data).toHaveProperty("count");
+    expect(data).toHaveProperty("root_threads");
+    expect(data).toHaveProperty("reply_comments");
+    expect(Array.isArray(data.comments)).toBe(true);
+  }, 90000);
 
-      // Should have formatted content
-      expect(summary).toContain('Author:');
-    }, 60000);
-
-    test('should respect maxComments parameter', async () => {
-      const summary = await getVideoCommentsSummary(testUrl, 3, CONFIG);
-
-      // Count occurrences of "Author:" to verify number of comments
-      const authorMatches = summary.match(/Author:/g) ?? [];
-      expect(authorMatches.length).toBeLessThanOrEqual(3);
-    }, 60000);
-
-    test('should throw error for invalid URL', async () => {
-      await expect(getVideoCommentsSummary('invalid-url', 5, CONFIG)).rejects.toThrow();
+  test("generates threaded comments summary", async () => {
+    const summary = await getVideoCommentsSummary(testUrl, 5, CONFIG, {
+      view: "threaded",
     });
 
-    test('should handle videos with different comment counts', async () => {
-      const summary = await getVideoCommentsSummary(testUrl, 10, CONFIG);
+    expect(typeof summary).toBe("string");
+    expect(summary).toContain("Video Comments");
+  }, 90000);
 
-      // Summary should be a valid string
-      expect(typeof summary).toBe('string');
-      expect(summary.trim().length).toBeGreaterThan(0);
-    }, 60000);
-  });
-
-  describe('Error Handling', () => {
-    test('should provide helpful error message for unavailable video', async () => {
-      const unavailableUrl = 'https://www.youtube.com/watch?v=invalid_video_id_xyz123';
-
-      await expect(getVideoComments(unavailableUrl, 5, 'top', CONFIG)).rejects.toThrow();
-    }, 30000);
-
-    test('should handle unsupported URLs gracefully', async () => {
-      const unsupportedUrl = 'https://example.com/not-a-video';
-
-      await expect(getVideoComments(unsupportedUrl, 5, 'top', CONFIG)).rejects.toThrow();
-    }, 30000);
-  });
-
-  describe('Comment Fields', () => {
-    test('should include author information when available', async () => {
-      const commentsJson = await getVideoComments(testUrl, 5, 'top', CONFIG);
-      const data: CommentsResponse = JSON.parse(commentsJson);
-
-      if (data.comments.length > 0) {
-        const comment = data.comments[0];
-
-        // Author fields
-        if (comment.author !== undefined) {
-          expect(typeof comment.author).toBe('string');
-        }
-        if (comment.author_id !== undefined) {
-          expect(typeof comment.author_id).toBe('string');
-        }
-      }
-    }, 60000);
-
-    test('should include engagement metrics when available', async () => {
-      const commentsJson = await getVideoComments(testUrl, 5, 'top', CONFIG);
-      const data: CommentsResponse = JSON.parse(commentsJson);
-
-      if (data.comments.length > 0) {
-        // At least one top comment should have like_count
-        const hasLikes = data.comments.some(c =>
-          c.like_count !== undefined && typeof c.like_count === 'number'
-        );
-        // This is optional - some comments may not have likes
-        expect(hasLikes || data.comments.length > 0).toBe(true);
-      }
-    }, 60000);
-
-    test('should handle boolean flags correctly', async () => {
-      const commentsJson = await getVideoComments(testUrl, 10, 'top', CONFIG);
-      const data: CommentsResponse = JSON.parse(commentsJson);
-
-      for (const comment of data.comments) {
-        // Boolean flags should be boolean or undefined
-        if (comment.is_pinned !== undefined) {
-          expect(typeof comment.is_pinned).toBe('boolean');
-        }
-        if (comment.author_is_uploader !== undefined) {
-          expect(typeof comment.author_is_uploader).toBe('boolean');
-        }
-        if (comment.author_is_verified !== undefined) {
-          expect(typeof comment.author_is_verified).toBe('boolean');
-        }
-      }
-    }, 60000);
+  test("throws for invalid URLs", async () => {
+    await expect(getVideoComments("invalid-url", 5, "top", CONFIG)).rejects.toThrow();
+    await expect(getVideoCommentsSummary("invalid-url", 5, CONFIG)).rejects.toThrow();
   });
 });

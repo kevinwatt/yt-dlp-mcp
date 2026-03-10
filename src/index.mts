@@ -137,6 +137,36 @@ const GetVideoCommentsInput = {
   sortOrder: z.enum(["top", "new"])
     .default("top")
     .describe("Sort order: 'top' for most liked, 'new' for newest (default: 'top')"),
+  view: z.enum(["flat", "threaded"])
+    .default("flat")
+    .describe("Comment view: 'flat' for backward-compatible list output, 'threaded' for reply trees"),
+  responseFormat: z.enum(["json", "markdown_tree"])
+    .default("json")
+    .describe("Response format: 'json' for structured data, 'markdown_tree' for AI-friendly threaded Markdown (requires threaded view)"),
+  maxParents: z.coerce.number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .max(100, "Cannot exceed 100 parent comments")
+    .optional()
+    .describe("Optional cap for root comments passed to yt-dlp's YouTube extractor"),
+  maxReplies: z.coerce.number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .max(100, "Cannot exceed 100 reply comments")
+    .optional()
+    .describe("Optional cap for total replies passed to yt-dlp's YouTube extractor"),
+  maxRepliesPerThread: z.coerce.number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .max(100, "Cannot exceed 100 replies per thread")
+    .optional()
+    .describe("Optional cap for replies per thread passed to yt-dlp's YouTube extractor"),
+  maxDepth: z.coerce.number()
+    .int("Must be a whole number")
+    .min(1, "Depth must be at least 1")
+    .max(10, "Depth cannot exceed 10")
+    .optional()
+    .describe("Optional maximum reply depth passed to yt-dlp's YouTube extractor (default: 2)"),
 };
 
 const GetVideoCommentsSummaryInput = {
@@ -149,6 +179,9 @@ const GetVideoCommentsSummaryInput = {
     .max(50, "Cannot exceed 50 comments for summary")
     .default(10)
     .describe("Maximum number of comments to include in summary (1-50, default: 10)"),
+  view: z.enum(["flat", "threaded"])
+    .default("flat")
+    .describe("Summary view: 'flat' for linear comments, 'threaded' for grouped reply trees"),
 };
 
 /**
@@ -568,19 +601,28 @@ Error Handling:
 server.registerTool(
   "ytdlp_get_video_comments",
   {
-    description: `Extract comments from a video in JSON format.
+    description: `Extract comments from a video in JSON or AI-friendly Markdown format.
 
-This tool retrieves comments from videos (primarily YouTube) using yt-dlp's comment extraction feature. Returns structured comment data including author info, likes, and timestamps.
+This tool retrieves comments from videos (primarily YouTube) using yt-dlp's comment extraction feature. It supports backward-compatible flat JSON, threaded JSON with nested replies, and AI-friendly Markdown that preserves thread structure.
 
 Args:
   - url (string): Full video URL
   - maxComments (number): Maximum comments to retrieve (1-100, default: 20)
   - sortOrder (enum): 'top' for most liked comments, 'new' for newest (default: 'top')
+  - view (enum): 'flat' for linear output, 'threaded' for nested replies (default: 'flat')
+  - responseFormat (enum): 'json' for structured data, 'markdown_tree' for AI-friendly threaded Markdown (default: 'json', requires threaded view)
+  - maxParents (number, optional): Cap root comments at extractor level
+  - maxReplies (number, optional): Cap total replies at extractor level
+  - maxRepliesPerThread (number, optional): Cap replies per thread at extractor level
+  - maxDepth (number, optional): Cap reply depth at extractor level (default: 2)
 
 Returns:
-  JSON object with:
+  JSON format:
   - count: Number of comments returned
   - has_more: Whether more comments are available
+  - root_threads: Number of root comments returned
+  - reply_comments: Number of reply comments returned
+  - orphan_comments: Replies whose parent was missing and had to be lifted to root
   - comments: Array of comment objects containing:
     - id: Comment identifier
     - text: Comment content
@@ -593,11 +635,16 @@ Returns:
     - parent: Parent comment ID (for replies)
     - timestamp: Unix timestamp
     - time_text: Human-readable time (e.g., "2 days ago")
+    - depth: Reply depth in the reconstructed tree
+    - reply_count: Number of direct replies included
+
+  Threaded JSON additionally nests replies inside each root comment under 'replies: []'.
+  Markdown format returns '## Thread N' blocks with explicit 'parent_id', 'depth', 'reply_count', and pipe-prefixed text blocks.
 
 Use when: You need structured comment data for analysis or display
 Don't use when: You want a quick readable overview (use ytdlp_get_video_comments_summary)
 
-Note: Comment extraction is primarily supported for YouTube. Other platforms may have limited support.
+Note: Comment extraction is primarily supported for YouTube. On platforms without reply metadata, threaded mode degrades gracefully to root-only comments.
 
 Error Handling:
   - "Video is unavailable or private" for inaccessible content
@@ -612,9 +659,16 @@ Error Handling:
       openWorldHint: true
     }
   },
-  async ({ url, maxComments, sortOrder }) =>
+  async ({ url, maxComments, sortOrder, view, responseFormat, maxParents, maxReplies, maxRepliesPerThread, maxDepth }) =>
     handleToolExecution(
-      () => getVideoComments(url, maxComments, sortOrder, CONFIG),
+      () => getVideoComments(url, maxComments, sortOrder, CONFIG, {
+        view,
+        responseFormat,
+        maxParents,
+        maxReplies,
+        maxRepliesPerThread,
+        maxDepth,
+      }),
       "Error extracting video comments"
     )
 );
@@ -624,11 +678,12 @@ server.registerTool(
   {
     description: `Get a human-readable summary of video comments.
 
-This tool extracts comments and formats them into an easy-to-read summary. Perfect for quick overview of audience reactions and popular comments.
+This tool extracts comments and formats them into an easy-to-read summary. It can render either a linear flat list or grouped reply threads.
 
 Args:
   - url (string): Full video URL
   - maxComments (number): Maximum comments to include (1-50, default: 10)
+  - view (enum): 'flat' for linear comments, 'threaded' for grouped reply trees (default: 'flat')
 
 Returns:
   Formatted text summary with:
@@ -636,7 +691,7 @@ Returns:
   - Time posted (e.g., "2 days ago")
   - Like count
   - Comment text (truncated to 300 chars if longer)
-  - Reply indicators
+  - Reply grouping in threaded mode
 
 Use when: You want a quick, readable overview of video comments
 Don't use when: You need complete structured data (use ytdlp_get_video_comments)
@@ -653,9 +708,9 @@ Error Handling:
       openWorldHint: true
     }
   },
-  async ({ url, maxComments }) =>
+  async ({ url, maxComments, view }) =>
     handleToolExecution(
-      () => getVideoCommentsSummary(url, maxComments, CONFIG),
+      () => getVideoCommentsSummary(url, maxComments, CONFIG, { view }),
       "Error generating video comments summary"
     )
 );

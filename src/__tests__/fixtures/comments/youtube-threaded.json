@@ -1,0 +1,56 @@
+[
+  {
+    "id": "c1",
+    "text": "Root comment 1",
+    "author": "Alice",
+    "like_count": 12,
+    "time_text": "2 days ago",
+    "is_pinned": true
+  },
+  {
+    "id": "r1",
+    "text": "Reply 1",
+    "author": "Bob",
+    "parent": "c1",
+    "_time_text": "1 day ago"
+  },
+  {
+    "id": "r2",
+    "text": "Nested reply",
+    "author": "Carol",
+    "parent": "r1",
+    "time_text": "12 hours ago"
+  },
+  {
+    "id": "c1",
+    "text": "Duplicate ignored",
+    "author": "Duplicate"
+  },
+  {
+    "id": "orphan-1",
+    "text": "Orphan reply",
+    "author": "Dana",
+    "parent": "missing-parent",
+    "time_text": "3 hours ago"
+  },
+  {
+    "id": "self-1",
+    "text": "Self parent",
+    "author": "Eve",
+    "parent": "self-1",
+    "time_text": "1 hour ago"
+  },
+  {
+    "id": "c2",
+    "text": "Root comment 2",
+    "author": "Frank",
+    "like_count": 1,
+    "time_text": "4 days ago"
+  },
+  {
+    "id": "r3",
+    "text": "Reply to second root",
+    "author": "Grace",
+    "parent": "c2"
+  }
+]

@@ -23,7 +23,7 @@ npm test  # Run Jest tests with ESM support
 
 ### Manual Testing
 ```bash
-npx @kevinwatt/yt-dlp-mcp  # Start MCP server manually
+node ./lib/index.mjs  # Start local built MCP server manually
 ```
 
 ## Code Architecture
@@ -32,22 +32,55 @@ npx @kevinwatt/yt-dlp-mcp  # Start MCP server manually
 This is an MCP (Model Context Protocol) server that integrates with `yt-dlp` for video/audio downloading. The server:
 
 - **Entry point**: `src/index.mts` - Main MCP server implementation with tool handlers
-- **Modular design**: Each feature lives in `src/modules/` (video.ts, audio.ts, subtitle.ts, search.ts, metadata.ts)
+- **Modular design**: Each feature lives in `src/modules/` (video.ts, audio.ts, subtitle.ts, search.ts, metadata.ts, comments.ts)
 - **Configuration**: `src/config.ts` - Centralized config with environment variable support and validation
 - **Utility functions**: `src/modules/utils.ts` - Shared spawn and cleanup utilities
 
 ### Tool Architecture
-The server exposes 10 MCP tools (all prefixed with `ytdlp_` on the wire):
+The server exposes 10 MCP tools (all prefixed with `ytdlp_` in the protocol layer):
 1. `search_videos` - YouTube video search
 2. `list_subtitle_languages` - List available subtitles
-3. `download_video_subtitles` - Download subtitle files  
+3. `download_video_subtitles` - Download subtitle files
 4. `download_video` - Download videos with resolution/trimming options
 5. `download_audio` - Extract and download audio
 6. `download_transcript` - Generate clean text transcripts
 7. `get_video_metadata` - Extract comprehensive video metadata (JSON format)
 8. `get_video_metadata_summary` - Get human-readable metadata summary
-9. `get_video_comments` - Extract comments as structured JSON (sort by top/new, up to 100)
-10. `get_video_comments_summary` - Human-readable summary of top comments (up to 50)
+9. `get_video_comments` - Extract comments as flat JSON, threaded JSON, or AI-friendly Markdown
+10. `get_video_comments_summary` - Get human-readable flat or threaded comment summaries
+
+### Comments Architecture
+The comments flow is split into small modules:
+- `src/modules/comments.ts` - yt-dlp orchestration, metadata parsing, and error mapping
+- `src/modules/comments-types.ts` - Shared comment/request/response types and extractor arg builder
+- `src/modules/comments-prepare.ts` - Normalization, deduplication, orphan lifting, and thread reconstruction
+- `src/modules/comments-render.ts` - JSON/Markdown rendering and whole-unit truncation
+- `src/modules/comments-summary.ts` - Flat/threaded summary formatting
+- `src/modules/comments-core.ts` - Re-export facade used by tests and callers
+
+Important comments behavior:
+- Preserve backward-compatible default behavior: `view="flat"` and `responseFormat="json"`
+- Normalize `time_text` from `comment.time_text ?? comment._time_text ?? null`
+- Treat missing/self-referential parents as orphans and lift them to `root`
+- For unsupported platforms without parent metadata, threaded mode degrades to root-only comments
+- Character-limit truncation must remove whole comments/threads, never cut inside an object or markdown block
+
+### Comments Tool Parameters
+`ytdlp_get_video_comments` supports:
+- `url`
+- `maxComments`
+- `sortOrder`
+- `view`: `flat | threaded`
+- `responseFormat`: `json | markdown_tree`
+- `maxParents`
+- `maxReplies`
+- `maxRepliesPerThread`
+- `maxDepth`
+
+`ytdlp_get_video_comments_summary` supports:
+- `url`
+- `maxComments`
+- `view`: `flat | threaded`
 
 ### Key Patterns
 - **Unified error handling**: `handleToolExecution()` wrapper for consistent error responses
@@ -75,6 +108,7 @@ The server exposes 10 MCP tools (all prefixed with `ytdlp_` on the wire):
 - **Jest with ESM**: Custom config for TypeScript + ESM support
 - **Test isolation**: Tests run in separate environment with mocked dependencies
 - **Coverage**: Tests for each module in `src/__tests__/`
+- **Comments tests**: `src/__tests__/comments.test.ts` is fixture-based by default; live YouTube checks remain opt-in via `RUN_INTEGRATION_TESTS=1`
 
 ### TypeScript Configuration
 - **Strict mode**: All strict TypeScript checks enabled
@@ -107,3 +141,19 @@ Comprehensive test suite in `src/__tests__/metadata.test.ts` covers:
 - Error handling for invalid URLs
 - Format validation
 - Real-world integration with YouTube videos
+
+## Comments Module Details
+
+### Key Functions
+- `getVideoComments(url, maxComments?, sortOrder?, config?, options?)`
+  - Returns flat JSON by default
+  - Supports `view="threaded"` for nested reply trees
+  - Supports `responseFormat="markdown_tree"` for AI-friendly thread exports
+- `getVideoCommentsSummary(url, maxComments?, config?, options?)`
+  - Supports `view="flat"` and `view="threaded"`
+
+### Response Notes
+- Flat JSON returns `comments: NormalizedComment[]`
+- Threaded JSON returns `comments: ThreadedComment[]`
+- Both JSON modes add `root_threads`, `reply_comments`, `orphan_comments`
+- Markdown mode is optimized for LLM consumption with `## Thread N` blocks and explicit `parent_id`, `depth`, and `reply_count`

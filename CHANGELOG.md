@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Thread-aware comments processing with normalized `time_text`, `depth`, `reply_count`, and orphan lifting
+- `view` support for `ytdlp_get_video_comments` and `ytdlp_get_video_comments_summary` (`flat` or `threaded`)
+- `responseFormat="markdown_tree"` for AI-friendly comment exports with preserved reply structure
+- Full YouTube extractor comment tuple support: `maxComments`, `maxParents`, `maxReplies`, `maxRepliesPerThread`, `maxDepth`
+- Fixture-based comments test coverage for threaded output, markdown rendering, truncation, and graceful degradation
+
+### Changed
+- `ytdlp_get_video_comments` now returns `root_threads`, `reply_comments`, and `orphan_comments` in JSON responses
+- Threaded summary rendering now groups replies hierarchically instead of only showing raw parent IDs
+- README and API docs now document both comments tools and threaded comment modes
+
 ---
 
 ## [0.8.5] - 2026-05-19
