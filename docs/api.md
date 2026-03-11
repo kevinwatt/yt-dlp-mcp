@@ -175,7 +175,7 @@ Extract comments without downloading video content. Supports flat JSON, threaded
 - `sortOrder`: (Optional) `"top"` or `"new"` (default: `"top"`)
 - `config`: (Optional) Configuration object
 - `options.view`: (Optional) `"flat"` or `"threaded"` (default: `"flat"`)
-- `options.responseFormat`: (Optional) `"json"` or `"markdown_tree"` (default: `"json"`)
+- `options.responseFormat`: (Optional) `"json"` or `"markdown_tree"` (default: `"json"`). `markdown_tree` requires `options.view="threaded"` or omitted view
 - `options.maxParents`: (Optional) Cap root comments at extractor level
 - `options.maxReplies`: (Optional) Cap total replies at extractor level
 - `options.maxRepliesPerThread`: (Optional) Cap replies per thread at extractor level

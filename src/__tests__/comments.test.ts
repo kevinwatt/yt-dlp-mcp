@@ -161,6 +161,18 @@ describe("comments-core", () => {
     expect(data.comments.every((comment) => comment.replies.length === 0)).toBe(true);
   });
 
+  test("normalizes numeric ids and parent ids instead of dropping them", () => {
+    const prepared = prepareComments([
+      { id: 1, text: "Root" },
+      { id: 2, parent: 1, text: "Reply" },
+    ]);
+
+    expect(prepared.flatComments).toHaveLength(2);
+    expect(prepared.flatComments[0]).toMatchObject({ id: "1", parent: "root" });
+    expect(prepared.flatComments[1]).toMatchObject({ id: "2", parent: "1", depth: 1 });
+    expect(prepared.threadedComments[0].replies[0].id).toBe("2");
+  });
+
   test("renders threaded summary with grouped replies", () => {
     const summary = formatCommentsSummary(threadedFixture, {
       maxComments: 20,
@@ -170,6 +182,15 @@ describe("comments-core", () => {
     expect(summary).toContain("Thread 1");
     expect(summary).toContain("Reply: Bob (1 day ago)");
     expect(summary).not.toContain("Reply to comment");
+  });
+});
+
+describe("comments validation", () => {
+  test("rejects flat markdown_tree requests", async () => {
+    await expect(getVideoComments("https://www.youtube.com/watch?v=jNQXAC9IVRw", 5, "top", CONFIG, {
+      view: "flat",
+      responseFormat: "markdown_tree",
+    })).rejects.toThrow(/markdown_tree.*threaded/i);
   });
 });
 

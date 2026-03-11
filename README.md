@@ -345,7 +345,7 @@ Get human-readable metadata summary
 Extract comments in flat JSON, threaded JSON, or AI-friendly Markdown
 - **Parameters**: `url`, `maxComments`, `sortOrder`, `view`, `responseFormat`, `maxParents`, `maxReplies`, `maxRepliesPerThread`, `maxDepth`
 - **Views**: `flat` (default) or `threaded`
-- **Formats**: `json` (default) or `markdown_tree`
+- **Formats**: `json` (default) or `markdown_tree` (`markdown_tree` requires threaded view)
 - **Returns**: Comment objects with `depth`, `reply_count`, `root_threads`, `reply_comments`, `orphan_comments`
 - **Graceful Degradation**: On platforms without parent metadata, threaded mode falls back to root-only comments
 

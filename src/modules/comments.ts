@@ -45,10 +45,18 @@ export async function getVideoComments(
     throw new Error("Invalid or unsupported URL format");
   }
 
+  const normalizedView = options.responseFormat === "markdown_tree"
+    ? options.view ?? "threaded"
+    : options.view;
+
+  if (options.responseFormat === "markdown_tree" && normalizedView !== "threaded") {
+    throw new Error("responseFormat 'markdown_tree' requires view 'threaded'. Omit view to use the threaded default.");
+  }
+
   const requestOptions = resolveCommentRequestOptions({
     maxComments,
     sortOrder,
-    view: options.view,
+    view: normalizedView,
     responseFormat: options.responseFormat,
     maxParents: options.maxParents,
     maxReplies: options.maxReplies,

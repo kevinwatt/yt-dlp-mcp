@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threaded summary rendering now groups replies hierarchically instead of only showing raw parent IDs
 - README and API docs now document both comments tools and threaded comment modes
 
+### Fixed
+- Comments normalization now preserves numeric comment IDs and numeric parent IDs by coercing them to strings
+- `responseFormat="markdown_tree"` now rejects incompatible `view="flat"` requests instead of silently ignoring the view mode
+
 ---
 
 ## [0.8.5] - 2026-05-19

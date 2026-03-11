@@ -100,7 +100,7 @@ function normalizeComments(rawComments: unknown): InternalComment[] {
     }
 
     const rawComment = item as Record<string, unknown>;
-    const id = readOptionalString(rawComment.id);
+    const id = readOptionalIdentifier(rawComment.id);
     if (!id || seenIds.has(id)) {
       continue;
     }
@@ -118,7 +118,7 @@ function normalizeComments(rawComments: unknown): InternalComment[] {
       like_count: readOptionalNumber(rawComment.like_count),
       is_pinned: readOptionalBoolean(rawComment.is_pinned),
       is_favorited: readOptionalBoolean(rawComment.is_favorited),
-      parent: readOptionalString(rawComment.parent) ?? "root",
+      parent: readOptionalIdentifier(rawComment.parent) ?? "root",
       timestamp: readOptionalNumber(rawComment.timestamp),
       time_text: readOptionalString(rawComment.time_text) ?? readOptionalString(rawComment._time_text) ?? null,
       depth: 0,
@@ -184,6 +184,18 @@ function readOptionalString(value: unknown, allowEmpty: boolean = false): string
 
   if (allowEmpty || value.length > 0) {
     return value;
+  }
+
+  return undefined;
+}
+
+function readOptionalIdentifier(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value.length > 0 ? value : undefined;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
   }
 
   return undefined;
