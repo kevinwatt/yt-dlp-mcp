@@ -98,6 +98,10 @@ export function buildCommentExtractorArgs(options: CommentRequestOptions): strin
   return `youtube:comment_sort=${options.sortOrder};max_comments=${options.maxComments},${options.maxParents},${options.maxReplies},${options.maxRepliesPerThread},${options.maxDepth}`;
 }
 
+export function countThreadComments(comment: ThreadedComment): number {
+  return 1 + comment.replies.reduce((sum, reply) => sum + countThreadComments(reply), 0);
+}
+
 function clampInteger(value: number, minimum: number): number {
   return Math.max(minimum, Math.trunc(value));
 }

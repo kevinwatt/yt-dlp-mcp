@@ -10,6 +10,7 @@ import type {
   ThreadedComment,
   ThreadedCommentsResponse,
 } from "./comments-types.js";
+import { countThreadComments } from "./comments-types.js";
 
 interface SelectionResult<TComment> {
   comments: TComment[];
@@ -110,9 +111,8 @@ function serializeFlatResponse(
 ): string {
   let selectedComments = comments;
   let truncated = false;
-  let result = "";
 
-  while (selectedComments.length >= 0) {
+  while (true) {
     const stats = buildFlatStats(selectedComments, orphanIds);
     const response: FlatCommentsResponse = {
       count: stats.count,
@@ -127,7 +127,7 @@ function serializeFlatResponse(
       } : {}),
     };
 
-    result = JSON.stringify(response, null, 2);
+    const result = JSON.stringify(response, null, 2);
     if (!characterLimit || result.length <= characterLimit || selectedComments.length === 0) {
       return result;
     }
@@ -135,8 +135,6 @@ function serializeFlatResponse(
     truncated = true;
     selectedComments = selectedComments.slice(0, -1);
   }
-
-  return result;
 }
 
 function serializeThreadedResponse(
@@ -147,9 +145,8 @@ function serializeThreadedResponse(
 ): string {
   let selectedThreads = comments;
   let truncated = false;
-  let result = "";
 
-  while (selectedThreads.length >= 0) {
+  while (true) {
     const stats = buildThreadedStats(selectedThreads, orphanIds);
     const response: ThreadedCommentsResponse = {
       count: stats.count,
@@ -164,7 +161,7 @@ function serializeThreadedResponse(
       } : {}),
     };
 
-    result = JSON.stringify(response, null, 2);
+    const result = JSON.stringify(response, null, 2);
     if (!characterLimit || result.length <= characterLimit || selectedThreads.length === 0) {
       return result;
     }
@@ -172,8 +169,6 @@ function serializeThreadedResponse(
     truncated = true;
     selectedThreads = selectedThreads.slice(0, -1);
   }
-
-  return result;
 }
 
 function formatMarkdownComments(
@@ -186,10 +181,9 @@ function formatMarkdownComments(
   const baseSelection = selectThreadedComments(prepared.threadedComments, maxComments);
   let selectedThreads = baseSelection.comments;
   let truncated = false;
-  let result = "";
 
-  while (selectedThreads.length >= 0) {
-    result = renderMarkdownDocument(
+  while (true) {
+    const result = renderMarkdownDocument(
       selectedThreads,
       prepared,
       sourceInfo,
@@ -205,8 +199,6 @@ function formatMarkdownComments(
     truncated = true;
     selectedThreads = selectedThreads.slice(0, -1);
   }
-
-  return result;
 }
 
 function renderMarkdownDocument(
@@ -325,9 +317,6 @@ function flattenThreads(comments: ThreadedComment[]): ThreadedComment[] {
   return flattened;
 }
 
-function countThreadComments(comment: ThreadedComment): number {
-  return 1 + comment.replies.reduce((sum, reply) => sum + countThreadComments(reply), 0);
-}
 
 function appendOptionalLine(lines: string[], key: string, value: unknown): void {
   if (value === undefined || value === null) {

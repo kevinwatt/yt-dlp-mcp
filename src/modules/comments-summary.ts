@@ -2,6 +2,7 @@ import type {
   NormalizedComment,
   ThreadedComment,
 } from "./comments-types.js";
+import { countThreadComments } from "./comments-types.js";
 
 export function buildFlatSummary(comments: NormalizedComment[], hasMore: boolean): string {
   const lines: string[] = [];
@@ -95,8 +96,4 @@ function truncateCommentText(text: string): string {
   }
 
   return `${text.slice(0, 300)}...`;
-}
-
-function countThreadComments(comment: ThreadedComment): number {
-  return 1 + comment.replies.reduce((sum, reply) => sum + countThreadComments(reply), 0);
 }
