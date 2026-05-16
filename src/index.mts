@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import type { ZodType } from "zod";
 
 import * as os from "os";
 import * as fs from "fs";
@@ -155,6 +156,26 @@ const GetVideoCommentsSummarySchema = z.object({
 }).strict();
 
 /**
+ * Convert a Zod schema to a JSON Schema for use as an MCP tool `inputSchema`.
+ *
+ * The MCP protocol requires `inputSchema` to be a JSON Schema object. The
+ * older @modelcontextprotocol/sdk (0.7.x) does not auto-convert Zod schemas,
+ * so passing a raw Zod object would publish an empty schema to clients and
+ * cause every tool call to arrive with `arguments` stripped to `{}` (which
+ * surfaces as `expected string, received undefined` validation errors).
+ *
+ * Zod v4 ships `z.toJSONSchema()` natively, so no extra dependency is needed.
+ * We strip the `$schema` field because the MCP client validates against the
+ * raw structural schema and some clients reject unknown top-level keys.
+ */
+function toJsonSchema(schema: ZodType): Record<string, unknown> {
+  const json = z.toJSONSchema(schema) as Record<string, unknown>;
+  // Remove dialect identifier; MCP clients only need the structural schema.
+  delete json["$schema"];
+  return json;
+}
+
+/**
  * Validate system configuration
  * @throws {Error} when configuration is invalid
  */
@@ -256,7 +277,7 @@ Error Handling:
   - Returns "No videos found" if search is empty
   - Network errors: Check internet connection and retry
   - Rate limits: Wait before searching again`,
-        inputSchema: SearchVideosSchema,
+        inputSchema: toJsonSchema(SearchVideosSchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -285,7 +306,7 @@ Don't use when: You want to download subtitles (use ytdlp_download_video_subtitl
 Error Handling:
   - "Invalid or unsupported URL format" for malformed URLs
   - "No subtitle files found" if video has no subtitles`,
-        inputSchema: ListSubtitleLanguagesSchema,
+        inputSchema: toJsonSchema(ListSubtitleLanguagesSchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -316,7 +337,7 @@ Error Handling:
   - "Invalid or unsupported URL format" for bad URLs
   - "No subtitle files found" if language is unavailable
   - Use ytdlp_list_subtitle_languages first to check available options`,
-        inputSchema: DownloadVideoSubtitlesSchema,
+        inputSchema: toJsonSchema(DownloadVideoSubtitlesSchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -349,7 +370,7 @@ Note: This creates/modifies local files. YouTube has different format handling t
 Error Handling:
   - "Download failed" with details if network errors or invalid URL
   - Check Downloads folder write permissions if saves fail`,
-        inputSchema: DownloadVideoSchema,
+        inputSchema: toJsonSchema(DownloadVideoSchema),
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
@@ -381,7 +402,7 @@ Error Handling:
   - "Download completed but file not found" if unexpected file naming
   - Check Downloads folder write permissions if saves fail
   - Network errors will show detailed messages`,
-        inputSchema: DownloadAudioSchema,
+        inputSchema: toJsonSchema(DownloadAudioSchema),
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
@@ -413,7 +434,7 @@ Error Handling:
   - "Invalid or unsupported URL format" for bad URLs
   - "No subtitle files found for transcript generation" if language unavailable
   - Use ytdlp_list_subtitle_languages to check options first`,
-        inputSchema: DownloadTranscriptSchema,
+        inputSchema: toJsonSchema(DownloadTranscriptSchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -449,7 +470,7 @@ Error Handling:
   - "Video is unavailable or private" for inaccessible content
   - "Unsupported URL or extractor not found" for unsupported platforms
   - "Network error" with details for connectivity issues`,
-        inputSchema: GetVideoMetadataSchema,
+        inputSchema: toJsonSchema(GetVideoMetadataSchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -481,7 +502,7 @@ Don't use when: You need complete structured data (use ytdlp_get_video_metadata 
 
 Error Handling:
   - Same as ytdlp_get_video_metadata (unavailable videos, unsupported URLs, network errors)`,
-        inputSchema: GetVideoMetadataSummarySchema,
+        inputSchema: toJsonSchema(GetVideoMetadataSummarySchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -527,7 +548,7 @@ Error Handling:
   - "Comments are disabled" for videos with comments turned off
   - "Requires authentication" for age-restricted content (configure cookies)
   - "Unsupported platform" for non-YouTube URLs`,
-        inputSchema: GetVideoCommentsSchema,
+        inputSchema: toJsonSchema(GetVideoCommentsSchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -560,7 +581,7 @@ Note: Comments are sorted by "top" (most liked) by default.
 
 Error Handling:
   - Same as ytdlp_get_video_comments (unavailable videos, disabled comments, authentication required)`,
-        inputSchema: GetVideoCommentsSummarySchema,
+        inputSchema: toJsonSchema(GetVideoCommentsSummarySchema),
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
