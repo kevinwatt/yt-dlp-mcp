@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Critical**: Tool `inputSchema` was being published as raw Zod schema objects, which `@modelcontextprotocol/sdk@0.7.0` does not auto-convert. Combined with the move to `zod@^4.1.12`, this caused clients to receive empty input schemas (`{ properties: {} }`) and strip all arguments before calling tools — surfacing as `expected string, received undefined` validation errors on every call. Added a `toJsonSchema()` helper using Zod v4's built-in `z.toJSONSchema()` and wrapped all 10 tool registrations.
+
 ---
 
 ## [0.8.4] - 2026-01-04
