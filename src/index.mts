@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema
-} from "@modelcontextprotocol/sdk/types.js";
-import type { CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import * as os from "os";
@@ -21,7 +17,7 @@ import { searchVideos } from "./modules/search.js";
 import { getVideoMetadata, getVideoMetadataSummary } from "./modules/metadata.js";
 import { getVideoComments, getVideoCommentsSummary } from "./modules/comments.js";
 
-const VERSION = '0.8.4';
+const VERSION = '0.8.5';
 
 // Response format enum
 enum ResponseFormat {
@@ -38,8 +34,9 @@ enum UploadDateFilter {
   YEAR = "year"
 }
 
-// Zod Schemas for Input Validation
-const SearchVideosSchema = z.object({
+// Tool input schemas defined as raw Zod shapes.
+// McpServer wraps each into an object schema and emits JSON Schema.
+const SearchVideosInput = {
   query: z.string()
     .min(1, "Query cannot be empty")
     .max(200, "Query must not exceed 200 characters")
@@ -61,15 +58,15 @@ const SearchVideosSchema = z.object({
   uploadDateFilter: z.nativeEnum(UploadDateFilter)
     .optional()
     .describe("Optional filter by upload date: 'hour', 'today', 'week', 'month', 'year'. If omitted, returns videos from all dates."),
-}).strict();
+};
 
-const ListSubtitleLanguagesSchema = z.object({
+const ListSubtitleLanguagesInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
-}).strict();
+};
 
-const DownloadVideoSubtitlesSchema = z.object({
+const DownloadVideoSubtitlesInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
@@ -77,9 +74,9 @@ const DownloadVideoSubtitlesSchema = z.object({
     .regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "Invalid language code format")
     .optional()
     .describe("Language code (e.g., 'en', 'zh-Hant', 'ja')"),
-}).strict();
+};
 
-const DownloadVideoSchema = z.object({
+const DownloadVideoInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
@@ -94,15 +91,15 @@ const DownloadVideoSchema = z.object({
     .regex(/^\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/, "Format must be HH:MM:SS or HH:MM:SS.ms")
     .optional()
     .describe("End time for trimming (format: HH:MM:SS[.ms])"),
-}).strict();
+};
 
-const DownloadAudioSchema = z.object({
+const DownloadAudioInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
-}).strict();
+};
 
-const DownloadTranscriptSchema = z.object({
+const DownloadTranscriptInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
@@ -110,24 +107,24 @@ const DownloadTranscriptSchema = z.object({
     .regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "Invalid language code format")
     .optional()
     .describe("Language code (e.g., 'en', 'zh-Hant', 'ja'). Defaults to 'en'"),
-}).strict();
+};
 
-const GetVideoMetadataSchema = z.object({
+const GetVideoMetadataInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
   fields: z.array(z.string())
     .optional()
     .describe("Specific metadata fields to extract (e.g., ['id', 'title', 'description'])"),
-}).strict();
+};
 
-const GetVideoMetadataSummarySchema = z.object({
+const GetVideoMetadataSummaryInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
-}).strict();
+};
 
-const GetVideoCommentsSchema = z.object({
+const GetVideoCommentsInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
@@ -140,9 +137,9 @@ const GetVideoCommentsSchema = z.object({
   sortOrder: z.enum(["top", "new"])
     .default("top")
     .describe("Sort order: 'top' for most liked, 'new' for newest (default: 'top')"),
-}).strict();
+};
 
-const GetVideoCommentsSummarySchema = z.object({
+const GetVideoCommentsSummaryInput = {
   url: z.string()
     .url("Must be a valid URL")
     .describe("URL of the video"),
@@ -152,7 +149,7 @@ const GetVideoCommentsSummarySchema = z.object({
     .max(50, "Cannot exceed 50 comments for summary")
     .default(10)
     .describe("Maximum number of comments to include in summary (1-50, default: 10)"),
-}).strict();
+};
 
 /**
  * Validate system configuration
@@ -200,7 +197,7 @@ async function checkDependencies(): Promise<void> {
  * Initialize service
  */
 async function initialize(): Promise<void> {
-  // 在測試環境中跳過初始化檢查
+  // Skip initialization checks in test environment
   if (process.env.NODE_ENV === 'test') {
     return;
   }
@@ -214,7 +211,28 @@ async function initialize(): Promise<void> {
   }
 }
 
-const server = new Server(
+/**
+ * Wrap a tool action in unified error handling, returning a CallToolResult.
+ */
+async function handleToolExecution<T>(
+  action: () => Promise<T>,
+  errorPrefix: string
+): Promise<CallToolResult> {
+  try {
+    const result = await action();
+    return {
+      content: [{ type: "text", text: String(result) }]
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: "text", text: `${errorPrefix}: ${errorMessage}` }],
+      isError: true
+    };
+  }
+}
+
+const server = new McpServer(
   {
     name: "yt-dlp-mcp",
     version: VERSION,
@@ -226,15 +244,10 @@ const server = new Server(
   }
 );
 
-/**
- * Returns the list of available tools.
- */
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: "ytdlp_search_videos",
-        description: `Search for videos on YouTube using keywords with pagination and date filtering support.
+server.registerTool(
+  "ytdlp_search_videos",
+  {
+    description: `Search for videos on YouTube using keywords with pagination and date filtering support.
 
 This tool queries YouTube's search API and returns matching videos with titles, uploaders, durations, and URLs. Supports pagination for browsing through large result sets and filtering by upload date.
 
@@ -256,17 +269,25 @@ Error Handling:
   - Returns "No videos found" if search is empty
   - Network errors: Check internet connection and retry
   - Rate limits: Wait before searching again`,
-        inputSchema: SearchVideosSchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_list_subtitle_languages",
-        description: `List all available subtitle languages and formats for a video.
+    inputSchema: SearchVideosInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ query, maxResults, offset, response_format, uploadDateFilter }) =>
+    handleToolExecution(
+      () => searchVideos(query, maxResults, offset, response_format, CONFIG, uploadDateFilter),
+      "Error searching videos"
+    )
+);
+
+server.registerTool(
+  "ytdlp_list_subtitle_languages",
+  {
+    description: `List all available subtitle languages and formats for a video.
 
 This tool retrieves the complete list of subtitle/caption languages available for a video, including both manually created and auto-generated subtitles.
 
@@ -285,17 +306,25 @@ Don't use when: You want to download subtitles (use ytdlp_download_video_subtitl
 Error Handling:
   - "Invalid or unsupported URL format" for malformed URLs
   - "No subtitle files found" if video has no subtitles`,
-        inputSchema: ListSubtitleLanguagesSchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_download_video_subtitles",
-        description: `Download video subtitles/captions in VTT format.
+    inputSchema: ListSubtitleLanguagesInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ url }) =>
+    handleToolExecution(
+      () => listSubtitles(url, CONFIG),
+      "Error listing subtitle languages"
+    )
+);
+
+server.registerTool(
+  "ytdlp_download_video_subtitles",
+  {
+    description: `Download video subtitles/captions in VTT format.
 
 This tool downloads subtitle files in WebVTT format, including both manually created and auto-generated captions. Subtitles are returned as text content with timestamps.
 
@@ -316,17 +345,25 @@ Error Handling:
   - "Invalid or unsupported URL format" for bad URLs
   - "No subtitle files found" if language is unavailable
   - Use ytdlp_list_subtitle_languages first to check available options`,
-        inputSchema: DownloadVideoSubtitlesSchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_download_video",
-        description: `Download video file to the user's Downloads folder.
+    inputSchema: DownloadVideoSubtitlesInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ url, language }) =>
+    handleToolExecution(
+      () => downloadSubtitles(url, language || CONFIG.download.defaultSubtitleLanguage, CONFIG),
+      "Error downloading subtitles"
+    )
+);
+
+server.registerTool(
+  "ytdlp_download_video",
+  {
+    description: `Download video file to the user's Downloads folder.
 
 This tool downloads video content from various platforms (YouTube, Vimeo, etc.) with options for quality selection and trimming. Files are saved to ~/Downloads by default.
 
@@ -349,17 +386,25 @@ Note: This creates/modifies local files. YouTube has different format handling t
 Error Handling:
   - "Download failed" with details if network errors or invalid URL
   - Check Downloads folder write permissions if saves fail`,
-        inputSchema: DownloadVideoSchema,
-        annotations: {
-          readOnlyHint: false,
-          destructiveHint: false,
-          idempotentHint: false,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_download_audio",
-        description: `Extract and download audio from video in best quality.
+    inputSchema: DownloadVideoInput,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    }
+  },
+  async ({ url, resolution, startTime, endTime }) =>
+    handleToolExecution(
+      () => downloadVideo(url, CONFIG, resolution, startTime, endTime),
+      "Error downloading video"
+    )
+);
+
+server.registerTool(
+  "ytdlp_download_audio",
+  {
+    description: `Extract and download audio from video in best quality.
 
 This tool extracts audio tracks from video content and saves them as audio files (typically M4A or MP3 format). Files are saved to ~/Downloads by default.
 
@@ -381,17 +426,25 @@ Error Handling:
   - "Download completed but file not found" if unexpected file naming
   - Check Downloads folder write permissions if saves fail
   - Network errors will show detailed messages`,
-        inputSchema: DownloadAudioSchema,
-        annotations: {
-          readOnlyHint: false,
-          destructiveHint: false,
-          idempotentHint: false,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_download_transcript",
-        description: `Generate clean plain text transcript from video subtitles.
+    inputSchema: DownloadAudioInput,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    }
+  },
+  async ({ url }) =>
+    handleToolExecution(
+      () => downloadAudio(url, CONFIG),
+      "Error downloading audio"
+    )
+);
+
+server.registerTool(
+  "ytdlp_download_transcript",
+  {
+    description: `Generate clean plain text transcript from video subtitles.
 
 This tool downloads subtitles and converts them to clean, readable text by removing timestamps, formatting tags, and duplicate content. Perfect for content analysis or reading.
 
@@ -413,17 +466,25 @@ Error Handling:
   - "Invalid or unsupported URL format" for bad URLs
   - "No subtitle files found for transcript generation" if language unavailable
   - Use ytdlp_list_subtitle_languages to check options first`,
-        inputSchema: DownloadTranscriptSchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_get_video_metadata",
-        description: `Extract comprehensive video metadata in JSON format without downloading content.
+    inputSchema: DownloadTranscriptInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ url, language }) =>
+    handleToolExecution(
+      () => downloadTranscript(url, language || CONFIG.download.defaultSubtitleLanguage, CONFIG),
+      "Error downloading transcript"
+    )
+);
+
+server.registerTool(
+  "ytdlp_get_video_metadata",
+  {
+    description: `Extract comprehensive video metadata in JSON format without downloading content.
 
 This tool retrieves detailed information about a video using yt-dlp's metadata extraction. No video/audio content is downloaded, only metadata is fetched.
 
@@ -449,17 +510,25 @@ Error Handling:
   - "Video is unavailable or private" for inaccessible content
   - "Unsupported URL or extractor not found" for unsupported platforms
   - "Network error" with details for connectivity issues`,
-        inputSchema: GetVideoMetadataSchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_get_video_metadata_summary",
-        description: `Get human-readable summary of key video information.
+    inputSchema: GetVideoMetadataInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ url, fields }) =>
+    handleToolExecution(
+      () => getVideoMetadata(url, fields, CONFIG),
+      "Error extracting video metadata"
+    )
+);
+
+server.registerTool(
+  "ytdlp_get_video_metadata_summary",
+  {
+    description: `Get human-readable summary of key video information.
 
 This tool extracts and formats the most important video metadata into an easy-to-read summary. Perfect for quick video information display.
 
@@ -481,17 +550,25 @@ Don't use when: You need complete structured data (use ytdlp_get_video_metadata 
 
 Error Handling:
   - Same as ytdlp_get_video_metadata (unavailable videos, unsupported URLs, network errors)`,
-        inputSchema: GetVideoMetadataSummarySchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_get_video_comments",
-        description: `Extract comments from a video in JSON format.
+    inputSchema: GetVideoMetadataSummaryInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ url }) =>
+    handleToolExecution(
+      () => getVideoMetadataSummary(url, CONFIG),
+      "Error generating video metadata summary"
+    )
+);
+
+server.registerTool(
+  "ytdlp_get_video_comments",
+  {
+    description: `Extract comments from a video in JSON format.
 
 This tool retrieves comments from videos (primarily YouTube) using yt-dlp's comment extraction feature. Returns structured comment data including author info, likes, and timestamps.
 
@@ -527,17 +604,25 @@ Error Handling:
   - "Comments are disabled" for videos with comments turned off
   - "Requires authentication" for age-restricted content (configure cookies)
   - "Unsupported platform" for non-YouTube URLs`,
-        inputSchema: GetVideoCommentsSchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-      {
-        name: "ytdlp_get_video_comments_summary",
-        description: `Get a human-readable summary of video comments.
+    inputSchema: GetVideoCommentsInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    }
+  },
+  async ({ url, maxComments, sortOrder }) =>
+    handleToolExecution(
+      () => getVideoComments(url, maxComments, sortOrder, CONFIG),
+      "Error extracting video comments"
+    )
+);
+
+server.registerTool(
+  "ytdlp_get_video_comments_summary",
+  {
+    description: `Get a human-readable summary of video comments.
 
 This tool extracts comments and formats them into an easy-to-read summary. Perfect for quick overview of audience reactions and popular comments.
 
@@ -560,151 +645,19 @@ Note: Comments are sorted by "top" (most liked) by default.
 
 Error Handling:
   - Same as ytdlp_get_video_comments (unavailable videos, disabled comments, authentication required)`,
-        inputSchema: GetVideoCommentsSummarySchema,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true
-        }
-      },
-    ],
-  };
-});
-
-/**
- * Handle tool execution with unified error handling
- * @param action Async operation to execute
- * @param errorPrefix Error message prefix
- */
-async function handleToolExecution<T>(
-  action: () => Promise<T>,
-  errorPrefix: string
-): Promise<{
-  content: Array<{ type: "text", text: string }>,
-  isError?: boolean
-}> {
-  try {
-    const result = await action();
-    return {
-      content: [{ type: "text", text: String(result) }]
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      content: [{ type: "text", text: `${errorPrefix}: ${errorMessage}` }],
-      isError: true
-    };
-  }
-}
-
-/**
- * Handles tool execution requests.
- */
-server.setRequestHandler(
-  CallToolRequestSchema,
-  async (request: CallToolRequest) => {
-    const toolName = request.params.name;
-    const args = request.params.arguments as {
-      url: string;
-      language?: string;
-      resolution?: string;
-      startTime?: string;
-      endTime?: string;
-      query?: string;
-      maxResults?: number;
-      maxComments?: number;
-      sortOrder?: "top" | "new";
-      fields?: string[];
-      uploadDateFilter?: string;
-    };
-
-    // Validate inputs with Zod schemas
-    try {
-      if (toolName === "ytdlp_search_videos") {
-        const validated = SearchVideosSchema.parse(args);
-        return handleToolExecution(
-          () => searchVideos(validated.query, validated.maxResults, validated.offset, validated.response_format, CONFIG, validated.uploadDateFilter),
-          "Error searching videos"
-        );
-      } else if (toolName === "ytdlp_list_subtitle_languages") {
-        const validated = ListSubtitleLanguagesSchema.parse(args);
-        return handleToolExecution(
-          () => listSubtitles(validated.url, CONFIG),
-          "Error listing subtitle languages"
-        );
-      } else if (toolName === "ytdlp_download_video_subtitles") {
-        const validated = DownloadVideoSubtitlesSchema.parse(args);
-        return handleToolExecution(
-          () => downloadSubtitles(validated.url, validated.language || CONFIG.download.defaultSubtitleLanguage, CONFIG),
-          "Error downloading subtitles"
-        );
-      } else if (toolName === "ytdlp_download_video") {
-        const validated = DownloadVideoSchema.parse(args);
-        return handleToolExecution(
-          () => downloadVideo(
-            validated.url,
-            CONFIG,
-            validated.resolution as "480p" | "720p" | "1080p" | "best",
-            validated.startTime,
-            validated.endTime
-          ),
-          "Error downloading video"
-        );
-      } else if (toolName === "ytdlp_download_audio") {
-        const validated = DownloadAudioSchema.parse(args);
-        return handleToolExecution(
-          () => downloadAudio(validated.url, CONFIG),
-          "Error downloading audio"
-        );
-      } else if (toolName === "ytdlp_download_transcript") {
-        const validated = DownloadTranscriptSchema.parse(args);
-        return handleToolExecution(
-          () => downloadTranscript(validated.url, validated.language || CONFIG.download.defaultSubtitleLanguage, CONFIG),
-          "Error downloading transcript"
-        );
-      } else if (toolName === "ytdlp_get_video_metadata") {
-        const validated = GetVideoMetadataSchema.parse(args);
-        return handleToolExecution(
-          () => getVideoMetadata(validated.url, validated.fields, CONFIG),
-          "Error extracting video metadata"
-        );
-      } else if (toolName === "ytdlp_get_video_metadata_summary") {
-        const validated = GetVideoMetadataSummarySchema.parse(args);
-        return handleToolExecution(
-          () => getVideoMetadataSummary(validated.url, CONFIG),
-          "Error generating video metadata summary"
-        );
-      } else if (toolName === "ytdlp_get_video_comments") {
-        const validated = GetVideoCommentsSchema.parse(args);
-        return handleToolExecution(
-          () => getVideoComments(validated.url, validated.maxComments, validated.sortOrder, CONFIG),
-          "Error extracting video comments"
-        );
-      } else if (toolName === "ytdlp_get_video_comments_summary") {
-        const validated = GetVideoCommentsSummarySchema.parse(args);
-        return handleToolExecution(
-          () => getVideoCommentsSummary(validated.url, validated.maxComments, CONFIG),
-          "Error generating video comments summary"
-        );
-      } else {
-        return {
-          content: [{ type: "text", text: `Unknown tool: ${toolName}` }],
-          isError: true
-        };
-      }
-    } catch (error) {
-      // Handle Zod validation errors
-      if (error instanceof z.ZodError) {
-        const errorMessages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
-        return {
-          content: [{ type: "text", text: `Invalid input: ${errorMessages}` }],
-          isError: true
-        };
-      }
-      throw error;
+    inputSchema: GetVideoCommentsSummaryInput,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     }
-  }
+  },
+  async ({ url, maxComments }) =>
+    handleToolExecution(
+      () => getVideoCommentsSummary(url, maxComments, CONFIG),
+      "Error generating video comments summary"
+    )
 );
 
 /**
