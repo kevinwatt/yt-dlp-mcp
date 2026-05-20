@@ -37,7 +37,7 @@ This is an MCP (Model Context Protocol) server that integrates with `yt-dlp` for
 - **Utility functions**: `src/modules/utils.ts` - Shared spawn and cleanup utilities
 
 ### Tool Architecture
-The server exposes 8 MCP tools:
+The server exposes 10 MCP tools (all prefixed with `ytdlp_` on the wire):
 1. `search_videos` - YouTube video search
 2. `list_subtitle_languages` - List available subtitles
 3. `download_video_subtitles` - Download subtitle files  
@@ -46,6 +46,8 @@ The server exposes 8 MCP tools:
 6. `download_transcript` - Generate clean text transcripts
 7. `get_video_metadata` - Extract comprehensive video metadata (JSON format)
 8. `get_video_metadata_summary` - Get human-readable metadata summary
+9. `get_video_comments` - Extract comments as structured JSON (sort by top/new, up to 100)
+10. `get_video_comments_summary` - Human-readable summary of top comments (up to 50)
 
 ### Key Patterns
 - **Unified error handling**: `handleToolExecution()` wrapper for consistent error responses

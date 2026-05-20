@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Tools/list response now emits valid JSON Schema for each tool's `inputSchema` (previously emitted a serialized Zod object that clients couldn't introspect)
 
+### Documentation
+- README and CLAUDE.md now document all 10 registered tools — the `ytdlp_get_video_comments` and `ytdlp_get_video_comments_summary` entries were missing.
+
 ---
 
 ## [0.8.4] - 2026-01-04

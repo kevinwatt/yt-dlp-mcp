@@ -331,6 +331,36 @@ Get human-readable metadata summary
 </tr>
 </table>
 
+### 💬 Comments
+
+<table>
+<tr>
+<th width="30%">Tool</th>
+<th width="70%">Description</th>
+</tr>
+<tr>
+<td><code>ytdlp_get_video_comments</code></td>
+<td>
+
+Extract comments from a video in JSON format
+- **Parameters**: `url`, `maxComments` (1-100, default 20), `sortOrder` (`top` or `new`, default `top`)
+- **Returns**: Structured comments with author, likes, timestamps, pinned/uploader/verified flags, reply links
+- **Note**: Primarily supported on YouTube
+
+</td>
+</tr>
+<tr>
+<td><code>ytdlp_get_video_comments_summary</code></td>
+<td>
+
+Get a human-readable summary of top comments
+- **Parameters**: `url`, `maxComments` (1-50, default 10)
+- **Returns**: Formatted text with author tags ([UPLOADER]/[VERIFIED]/[PINNED]), time posted, likes, and comment text (truncated at 300 chars)
+
+</td>
+</tr>
+</table>
+
 ---
 
 ## 💡 Usage Examples
