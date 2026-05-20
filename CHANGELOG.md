@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.5] - 2026-05-19
+
+### Changed
+- **SDK Upgrade**: Bumped `@modelcontextprotocol/sdk` from `0.7.0` to `^1.29.0` (major version jump)
+- **Migrated to `McpServer` high-level API**: Replaced low-level `Server` + `setRequestHandler` pattern with `McpServer.registerTool()`
+  - Removed manual `CallToolRequestSchema` / `ListToolsRequestSchema` handlers
+  - Removed hand-rolled tool dispatch switch and per-tool `parse()` calls — SDK now validates inputs against Zod shapes and routes to handlers automatically
+  - Tool input schemas now defined as raw Zod shapes (e.g. `{ url: z.string().url() }`) instead of wrapped `z.object().strict()` — SDK converts to proper JSON Schema for the wire format (previously the wire format contained a serialized Zod object, which was not a valid JSON Schema)
+  - `handleToolExecution()` wrapper retained for unified error normalization
+
+### Fixed
+- Tools/list response now emits valid JSON Schema for each tool's `inputSchema` (previously emitted a serialized Zod object that clients couldn't introspect)
+
+---
+
 ## [0.8.4] - 2026-01-04
 
 ### Fixed

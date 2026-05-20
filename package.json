@@ -1,6 +1,6 @@
 {
   "name": "@kevinwatt/yt-dlp-mcp",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "An MCP server implementation that integrates with yt-dlp, providing video and audio content download capabilities (e.g. YouTube, Facebook, Tiktok, etc.) for LLMs.",
   "keywords": [
     "mcp",
@@ -38,7 +38,7 @@
     }
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "0.7.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "rimraf": "^6.0.1",
     "spawn-rx": "^4.0.0",
     "zod": "^4.1.12"
