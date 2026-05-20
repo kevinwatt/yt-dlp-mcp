@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.9.0] - 2026-05-21
+
 ### Added
 - Thread-aware comments processing with normalized `time_text`, `depth`, `reply_count`, and orphan lifting
 - `view` support for `ytdlp_get_video_comments` and `ytdlp_get_video_comments_summary` (`flat` or `threaded`)
@@ -22,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Comments normalization now preserves numeric comment IDs and numeric parent IDs by coercing them to strings
 - `responseFormat="markdown_tree"` now rejects incompatible `view="flat"` requests instead of silently ignoring the view mode
+
+Thanks to @kolotovalexander (#26) for the threaded-comments feature work.
 
 ---
 
