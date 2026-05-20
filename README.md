@@ -342,10 +342,12 @@ Get human-readable metadata summary
 <td><code>ytdlp_get_video_comments</code></td>
 <td>
 
-Extract comments from a video in JSON format
-- **Parameters**: `url`, `maxComments` (1-100, default 20), `sortOrder` (`top` or `new`, default `top`)
-- **Returns**: Structured comments with author, likes, timestamps, pinned/uploader/verified flags, reply links
-- **Note**: Primarily supported on YouTube
+Extract comments in flat JSON, threaded JSON, or AI-friendly Markdown
+- **Parameters**: `url`, `maxComments`, `sortOrder`, `view`, `responseFormat`, `maxParents`, `maxReplies`, `maxRepliesPerThread`, `maxDepth`
+- **Views**: `flat` (default) or `threaded`
+- **Formats**: `json` (default) or `markdown_tree` (`markdown_tree` requires threaded view)
+- **Returns**: Comment objects with `depth`, `reply_count`, `root_threads`, `reply_comments`, `orphan_comments`
+- **Graceful Degradation**: On platforms without parent metadata, threaded mode falls back to root-only comments
 
 </td>
 </tr>
@@ -353,9 +355,10 @@ Extract comments from a video in JSON format
 <td><code>ytdlp_get_video_comments_summary</code></td>
 <td>
 
-Get a human-readable summary of top comments
-- **Parameters**: `url`, `maxComments` (1-50, default 10)
-- **Returns**: Formatted text with author tags ([UPLOADER]/[VERIFIED]/[PINNED]), time posted, likes, and comment text (truncated at 300 chars)
+Get a human-readable summary of comments
+- **Parameters**: `url`, `maxComments`, `view`
+- **Views**: `flat` (linear summary) or `threaded` (grouped reply trees)
+- **Returns**: Readable comment digest with author badges, time, likes, and grouped replies
 
 </td>
 </tr>
@@ -381,6 +384,16 @@ Get a human-readable summary of top comments
 "Show me the title, channel, and view count for this video"
 "Extract just the duration and upload date"
 "Give me a quick summary of this video's info"
+```
+
+### Get Comments
+
+```
+"Get the top 20 comments for https://youtube.com/watch?v=..."
+"Get comments as threaded JSON for this video"
+"Extract comments as markdown_tree so the reply branches stay intact"
+"Get newest comments with maxDepth 1 and maxRepliesPerThread 0"
+"Summarize comments in threaded view"
 ```
 
 ### Download Subtitles & Transcripts
@@ -517,6 +530,45 @@ Found 50 videos (showing 10):
    ⏱️  Duration: 10:30
    🔗 URL: https://...
 ```
+
+### Comment Markdown Tree
+Useful for LLM analysis when reply context matters:
+```markdown
+# AI-Ready Comment Threads
+
+source_title: "Sample Video"
+comments_detected: 20
+root_threads: 6
+reply_comments: 14
+
+## Threads
+
+### Thread 1
+
+- comment_id: "abc123"
+  parent_id: "root"
+  depth: 0
+  reply_count: 2
+  text:
+    | Root comment text
+  - comment_id: "reply456"
+    parent_id: "abc123"
+    depth: 1
+    reply_count: 0
+    text:
+      | Reply text
+```
+
+### Comment Limits
+YouTube comment extraction supports the full extractor tuple:
+```text
+youtube:comment_sort=<sort>;max_comments=<total>,<parents>,<replies>,<repliesPerThread>,<depth>
+```
+
+Examples:
+- Default behavior: `maxComments=20` yields `max_comments=20,20,20,20,2`
+- Root-only comments: `maxDepth=1`, `maxRepliesPerThread=0`
+- Limited branching: `maxReplies=40`, `maxRepliesPerThread=5`, `maxDepth=2`
 
 ---
 
