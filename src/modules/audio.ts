@@ -1,8 +1,13 @@
-import { readdirSync } from "fs";
 import * as path from "path";
 import type { Config } from "../config.js";
-import { sanitizeFilename, getCookieArgs } from "../config.js";
-import { _spawnPromise, validateUrl, getFormattedTimestamp, isYouTubeUrl } from "./utils.js";
+import { sanitizeFilename, getCookieArgs, getGlobalArgs } from "../config.js";
+import {
+  _spawnPromise,
+  validateUrl,
+  getFormattedTimestamp,
+  isYouTubeUrl,
+  resolveDownloadedFile
+} from "./utils.js";
 
 /**
  * Downloads audio from a video URL in the best available quality.
@@ -45,8 +50,17 @@ export async function downloadAudio(url: string, config: Config): Promise<string
       ? "140/bestaudio[ext=m4a]/bestaudio"
       : "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio";
 
-    await _spawnPromise("yt-dlp", [
-      "--ignore-config",
+    const output = await _spawnPromise("yt-dlp", [
+      ...getGlobalArgs(config),
+      // A --download-archive in the user's config file would silently skip an
+      // already-downloaded video and leave nothing to report back.
+      "--no-download-archive",
+      // --print implies --simulate; --no-simulate restores the download and
+      // also neutralizes a --simulate coming from the user's config file.
+      "--no-simulate",
+      // Have yt-dlp report the final path instead of predicting it. See
+      // resolveDownloadedFile() for why prediction is not safe here.
+      "--print", "after_move:filepath",
       "--no-check-certificate",
       "--verbose",
       "--progress",
@@ -58,12 +72,12 @@ export async function downloadAudio(url: string, config: Config): Promise<string
       url
     ]);
 
-    const files = readdirSync(config.file.downloadsDir);
-    const downloadedFile = files.find(file => file.includes(timestamp));
-    if (!downloadedFile) {
+    const downloadedPath = resolveDownloadedFile(output, config.file.downloadsDir, timestamp);
+    if (!downloadedPath) {
       throw new Error("Download completed but file not found. Check Downloads folder permissions.");
     }
-    return `Audio successfully downloaded as "${downloadedFile}" to ${config.file.downloadsDir}`;
+    // Report the directory yt-dlp actually used, which a config file can change.
+    return `Audio successfully downloaded as "${path.basename(downloadedPath)}" to ${path.dirname(downloadedPath)}`;
   } catch (error) {
     if (error instanceof Error) {
       if (error.message.includes("Unsupported URL") || error.message.includes("extractor")) {

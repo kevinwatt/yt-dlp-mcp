@@ -439,13 +439,67 @@ YTDLP_DEFAULT_RESOLUTION=1080p
 
 # Default subtitle language (default: en)
 YTDLP_DEFAULT_SUBTITLE_LANG=en
-
-# Character limit (default: 25000)
-YTDLP_CHARACTER_LIMIT=25000
-
-# Max transcript length (default: 50000)
-YTDLP_MAX_TRANSCRIPT_LENGTH=50000
 ```
+
+See the [Configuration Guide](./docs/configuration.md) for the full list.
+
+### Proxy and yt-dlp Config File
+
+All tools read your yt-dlp config file (`~/.config/yt-dlp/config`), so any
+`--proxy`, `--cookies` or other options set there apply automatically. This is
+the only channel available to MCP clients that cannot pass environment
+variables to the server process.
+
+These are alternatives — set only the one you need:
+
+| Setting | Effect |
+|---------|--------|
+| `YTDLP_PROXY=socks5://127.0.0.1:1080` | Route all requests through this proxy |
+| `YTDLP_PROXY=` (empty) | Force a direct connection, overriding a proxy in the yt-dlp config file |
+| `YTDLP_IGNORE_CONFIG=1` | Skip all yt-dlp config files |
+
+Supported proxy schemes: `http`, `https`, `socks4`, `socks5`, `socks5h`.
+
+> `YTDLP_IGNORE_CONFIG=1` is not a straight revert to 0.9.x. The search,
+> metadata and comments tools always read the config file, so this setting
+> stops them from doing so as well.
+
+**MCP Configuration with a proxy:**
+
+```json
+{
+  "mcpServers": {
+    "yt-dlp": {
+      "command": "npx",
+      "args": ["-y", "@kevinwatt/yt-dlp-mcp@latest"],
+      "env": {
+        "YTDLP_PROXY": "socks5://127.0.0.1:1080"
+      }
+    }
+  }
+}
+```
+
+If your MCP client cannot pass environment variables to the server, put the
+options in `~/.config/yt-dlp/config` instead — every tool reads that file:
+
+```
+--proxy socks5://127.0.0.1:1080
+--cookies /path/to/cookies.txt
+```
+
+> **Note**: Your config file applies to downloads as well. Options that change
+> the output format (`-x`, `--remux-video`, `--recode-video`) change what the
+> download tools produce; the tools report the file yt-dlp actually wrote, so
+> the reported name stays correct. Output-location options (`-o`, `-P`) have no
+> effect, because the tools always pass an absolute `--output` on the command
+> line, which takes precedence.
+>
+> **Note**: yt-dlp config files can contain options that execute commands
+> (`--exec`, `--postprocessor-args`, `--ffmpeg-location`). These now run on
+> tool invocations too, including ones triggered by an AI assistant. Set
+> `YTDLP_IGNORE_CONFIG=1` if you would rather the server ignore your config
+> file entirely.
 
 ### Cookie Configuration
 

@@ -59,6 +59,16 @@ export interface Config {
     // Browser name and settings (format: BROWSER[:PROFILE][::CONTAINER])
     fromBrowser?: string;
   };
+  // Network and yt-dlp config-file behavior
+  network: {
+    // Proxy URL passed through to yt-dlp (e.g. socks5://127.0.0.1:1080)
+    proxy?: string;
+    // When true, pass --ignore-config so yt-dlp skips all config files.
+    // Defaults to false so users can configure proxy/cookies via
+    // ~/.config/yt-dlp/config, which is the only channel available to
+    // clients that cannot inject env vars into the MCP server process.
+    ignoreConfig: boolean;
+  };
 }
 
 /**
@@ -95,6 +105,10 @@ const defaultConfig: Config = {
   cookies: {
     file: undefined,
     fromBrowser: undefined
+  },
+  network: {
+    proxy: undefined,
+    ignoreConfig: false
   }
 };
 
@@ -170,7 +184,29 @@ function loadEnvConfig(): DeepPartial<Config> {
     envConfig.cookies = cookiesConfig;
   }
 
+  // Network configuration
+  const networkConfig: Partial<Config['network']> = {};
+  // !== undefined, not truthiness: YTDLP_PROXY="" is a meaningful value that
+  // forces a direct connection, overriding any proxy in the yt-dlp config file.
+  if (process.env.YTDLP_PROXY !== undefined) {
+    networkConfig.proxy = process.env.YTDLP_PROXY;
+  }
+  if (process.env.YTDLP_IGNORE_CONFIG) {
+    networkConfig.ignoreConfig = parseBooleanEnv(process.env.YTDLP_IGNORE_CONFIG);
+  }
+  if (Object.keys(networkConfig).length > 0) {
+    envConfig.network = networkConfig;
+  }
+
   return envConfig;
+}
+
+/**
+ * Parse a boolean-ish environment variable.
+ * Accepts 1/true/yes/on (case-insensitive) as true; everything else is false.
+ */
+function parseBooleanEnv(value: string): boolean {
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
 /**
@@ -209,6 +245,36 @@ function validateConfig(config: Config): void {
 
   // Validate cookies (lenient - warnings only)
   validateCookiesConfig(config);
+
+  // Validate network settings (lenient - warnings only)
+  validateNetworkConfig(config);
+}
+
+/**
+ * Validate network configuration (lenient - logs warnings but doesn't throw)
+ */
+function validateNetworkConfig(config: Config): void {
+  if (!config.network) {
+    return;
+  }
+
+  const proxy = config.network.proxy;
+  if (proxy === undefined) {
+    return;
+  }
+
+  // yt-dlp treats an empty --proxy value as "force a direct connection",
+  // so an empty string is meaningful and must be preserved as-is.
+  if (proxy === '') {
+    return;
+  }
+
+  if (!/^(https?|socks[45]|socks5h):\/\//i.test(proxy)) {
+    console.warn(
+      `[yt-dlp-mcp] Invalid proxy URL: ${proxy}. Expected a scheme like http://, https://, socks4://, socks5:// or socks5h://. Continuing without proxy.`
+    );
+    config.network.proxy = undefined;
+  }
 }
 
 /**
@@ -267,6 +333,11 @@ function mergeConfig(base: Config, override: DeepPartial<Config>): Config {
     cookies: {
       file: override.cookies?.file ?? base.cookies.file,
       fromBrowser: override.cookies?.fromBrowser ?? base.cookies.fromBrowser
+    },
+    network: {
+      proxy: override.network?.proxy ?? base.network.proxy,
+      // ?? not || — an explicit `false` override must survive
+      ignoreConfig: override.network?.ignoreConfig ?? base.network.ignoreConfig
     }
   };
 }
@@ -323,6 +394,40 @@ export function getCookieArgs(config: Config): string[] {
     return ['--cookies-from-browser', config.cookies.fromBrowser];
   }
   return [];
+}
+
+/**
+ * Get global yt-dlp arguments that apply to every invocation.
+ *
+ * These must be placed at the front of the argument list so that
+ * `--ignore-config` is seen before yt-dlp resolves configuration files.
+ *
+ * By default no `--ignore-config` is emitted, so yt-dlp honours the user's
+ * config file (`~/.config/yt-dlp/config`). Set `YTDLP_IGNORE_CONFIG=1` to
+ * restore the previous hermetic behaviour.
+ *
+ * @param config Configuration object
+ * @returns Array of yt-dlp arguments applied to all tools
+ */
+export function getGlobalArgs(config: Config): string[] {
+  // Guard against missing network config
+  if (!config.network) {
+    return [];
+  }
+
+  const args: string[] = [];
+
+  if (config.network.ignoreConfig) {
+    args.push('--ignore-config');
+  }
+
+  // Compare against undefined, not truthiness: an empty proxy string is a
+  // valid yt-dlp value meaning "force a direct connection".
+  if (config.network.proxy !== undefined) {
+    args.push('--proxy', config.network.proxy);
+  }
+
+  return args;
 }
 
 // Export current configuration instance

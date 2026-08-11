@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.10.0] - 2026-08-11
+
+### Added
+- `YTDLP_PROXY` environment variable to route yt-dlp requests through a proxy (`http`, `https`, `socks4`, `socks5`, `socks5h`). An empty value forces a direct connection, overriding a proxy set in the yt-dlp config file
+- `YTDLP_IGNORE_CONFIG=1` to opt back into skipping all yt-dlp config files
+- `getGlobalArgs()` in `config.ts`, applied by every tool so proxy and config-file behavior stay consistent across all 10 tools
+
+### Changed
+- **Breaking**: download, audio, subtitle and transcript tools no longer pass `--ignore-config`, so they now honor the yt-dlp config file (`~/.config/yt-dlp/config`) like the metadata, search and comments tools always did. This restores proxy and cookie configuration for MCP clients that cannot inject environment variables into the server process (#30). `YTDLP_IGNORE_CONFIG=1` disables config files for **all** tools, so it is not a straight revert to 0.9.x behavior
+- `ytdlp_download_video` and `ytdlp_download_audio` now report the path yt-dlp emits via `--print after_move:filepath` instead of predicting it with `--get-filename` or reconstructing it. The reported name survives post-processing, `--restrict-filenames` and `--trim-filenames`, and the extra network round-trip per video download is gone
+- All tools now pass `--no-download-archive` explicitly, so a `--download-archive` in a user config file cannot silently skip a request. Without this the `--dump-json` tools received empty output and failed to parse it
+- Download tools now pass `--no-simulate`, so a `--simulate` in a user config file cannot turn a download into a no-op
+- `ytdlp_download_video_subtitles` now pins `--convert-subs vtt`, so a `--convert-subs` in a user config file cannot hide the subtitle files from the tool
+
+### Fixed
+- Proxy settings were previously unreachable for the download, audio, subtitle and transcript tools: `--ignore-config` blocked the config file and no proxy option existed (#30)
+- README no longer documents `YTDLP_CHARACTER_LIMIT` and `YTDLP_MAX_TRANSCRIPT_LENGTH`. Neither was ever read by `loadEnvConfig()`, so setting them had no effect. The underlying `limits` values keep their defaults (25000 / 50000) and remain configurable by passing a config object when using this package as a library
+
+Thanks to @Pheobe-Southwood (#30) for the detailed report and reproduction.
+
+---
+
 ## [0.9.0] - 2026-05-21
 
 ### Added

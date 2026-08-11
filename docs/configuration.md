@@ -27,6 +27,18 @@ interface Config {
     defaultAudioFormat: "m4a" | "mp3";
     defaultSubtitleLanguage: string;
   };
+  limits: {
+    characterLimit: number;
+    maxTranscriptLength: number;
+  };
+  cookies: {
+    file?: string;
+    fromBrowser?: string;
+  };
+  network: {
+    proxy?: string;
+    ignoreConfig: boolean;
+  };
 }
 ```
 
@@ -44,6 +56,31 @@ interface Config {
 | `YTDLP_DEFAULT_RESOLUTION` | Default video resolution | `720p` |
 | `YTDLP_DEFAULT_AUDIO_FORMAT` | Default audio format | `m4a` |
 | `YTDLP_DEFAULT_SUBTITLE_LANG` | Default subtitle language | `en` |
+| `YTDLP_COOKIES_FILE` | Path to a Netscape-format cookie file | — |
+| `YTDLP_COOKIES_FROM_BROWSER` | Browser to extract cookies from | — |
+| `YTDLP_PROXY` | Proxy URL for all yt-dlp requests. Empty value forces a direct connection | — |
+| `YTDLP_IGNORE_CONFIG` | Skip all yt-dlp config files | `false` |
+
+### Proxy and yt-dlp Config File
+
+By default no `--ignore-config` is passed, so every tool honors the user's
+yt-dlp config file (`~/.config/yt-dlp/config`). This is the only way to set a
+proxy or cookies for MCP clients that cannot pass environment variables to the
+server process.
+
+```bash
+# Route requests through a proxy
+export YTDLP_PROXY="socks5://127.0.0.1:1080"
+
+# Force a direct connection, overriding a proxy in the yt-dlp config file
+export YTDLP_PROXY=""
+
+# Skip all yt-dlp config files (pre-0.10.0 behavior)
+export YTDLP_IGNORE_CONFIG=1
+```
+
+Accepted proxy schemes are `http`, `https`, `socks4`, `socks5` and `socks5h`.
+A value with any other scheme is ignored with a warning.
 
 ## File Configuration
 

@@ -1,6 +1,6 @@
 {
   "name": "@kevinwatt/yt-dlp-mcp",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "An MCP server implementation that integrates with yt-dlp, providing video and audio content download capabilities (e.g. YouTube, Facebook, Tiktok, etc.) for LLMs.",
   "keywords": [
     "mcp",
@@ -27,7 +27,7 @@
   "main": "./lib/index.mjs",
   "scripts": {
     "prepare": "tsc --skipLibCheck && chmod +x ./lib/index.mjs",
-    "test": "PYTHONPATH= PYTHONHOME= node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles --forceExit"
+    "test": "PYTHONPATH= PYTHONHOME= YTDLP_IGNORE_CONFIG=1 node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles --forceExit"
   },
   "author": "Dewei Yen <k@funmula.com>",
   "license": "MIT",

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import type { Config } from '../config.js';
-import { getCookieArgs } from '../config.js';
+import { getCookieArgs, getGlobalArgs } from '../config.js';
 import { _spawnPromise, validateUrl, cleanSubtitleToTranscript } from "./utils.js";
 
 /**
@@ -30,7 +30,8 @@ export async function listSubtitles(url: string, config?: Config): Promise<strin
 
   try {
     const args = [
-      '--ignore-config',
+      ...(config ? getGlobalArgs(config) : []),
+      '--no-download-archive',
       '--list-subs',
       '--write-auto-sub',
       '--skip-download',
@@ -97,10 +98,14 @@ export async function downloadSubtitles(
 
   try {
     await _spawnPromise('yt-dlp', [
-      '--ignore-config',
+      ...getGlobalArgs(config),
+      '--no-download-archive',
       '--write-sub',
       '--write-auto-sub',
       '--sub-lang', language,
+      // Pin the output format: the .vtt filter below would otherwise miss the
+      // files whenever the user's config file sets --convert-subs.
+      '--convert-subs', 'vtt',
       '--skip-download',
       '--output', path.join(tempDir, '%(title)s.%(ext)s'),
       ...getCookieArgs(config),
@@ -176,7 +181,8 @@ export async function downloadTranscript(
 
   try {
     await _spawnPromise('yt-dlp', [
-      '--ignore-config',
+      ...getGlobalArgs(config),
+      '--no-download-archive',
       '--skip-download',
       '--write-subs',
       '--write-auto-subs',

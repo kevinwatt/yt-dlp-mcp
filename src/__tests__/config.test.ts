@@ -177,3 +177,127 @@ describe('Cookie Configuration', () => {
     });
   });
 });
+
+describe('Network Configuration', () => {
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.YTDLP_PROXY;
+    delete process.env.YTDLP_IGNORE_CONFIG;
+    jest.resetModules();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  describe('getGlobalArgs', () => {
+    // Regression guard for issue #30: emitting --ignore-config by default made
+    // the yt-dlp config file unreachable, which is the only way to set a proxy
+    // for clients that cannot inject env vars into the server process.
+    test('does not emit --ignore-config by default', async () => {
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+      const config = loadConfig();
+
+      expect(getGlobalArgs(config)).toEqual([]);
+      expect(config.network.ignoreConfig).toBe(false);
+    });
+
+    test('emits --ignore-config when opted in', async () => {
+      process.env.YTDLP_IGNORE_CONFIG = '1';
+
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+      expect(getGlobalArgs(loadConfig())).toEqual(['--ignore-config']);
+    });
+
+    test.each(['true', 'yes', 'on', 'ON'])(
+      'treats %s as opting in to --ignore-config',
+      async (value) => {
+        process.env.YTDLP_IGNORE_CONFIG = value;
+
+        const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+        expect(getGlobalArgs(loadConfig())).toEqual(['--ignore-config']);
+      }
+    );
+
+    test.each(['0', 'false', 'no', ''])(
+      'treats %s as leaving the config file enabled',
+      async (value) => {
+        process.env.YTDLP_IGNORE_CONFIG = value;
+
+        const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+        expect(getGlobalArgs(loadConfig())).not.toContain('--ignore-config');
+      }
+    );
+
+    test('emits --proxy when configured', async () => {
+      process.env.YTDLP_PROXY = 'socks5://127.0.0.1:1080';
+
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+      expect(getGlobalArgs(loadConfig())).toEqual([
+        '--proxy',
+        'socks5://127.0.0.1:1080'
+      ]);
+    });
+
+    test('places --ignore-config before --proxy', async () => {
+      process.env.YTDLP_IGNORE_CONFIG = '1';
+      process.env.YTDLP_PROXY = 'http://proxy.local:3128';
+
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+      expect(getGlobalArgs(loadConfig())).toEqual([
+        '--ignore-config',
+        '--proxy',
+        'http://proxy.local:3128'
+      ]);
+    });
+
+    // An empty --proxy value tells yt-dlp to force a direct connection, so it
+    // must survive rather than being treated as "unset".
+    test('preserves an empty proxy as a direct-connection override', async () => {
+      process.env.YTDLP_PROXY = '';
+
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+      expect(getGlobalArgs(loadConfig())).toEqual(['--proxy', '']);
+    });
+
+    test('drops a proxy with no recognised scheme', async () => {
+      process.env.YTDLP_PROXY = 'not-a-proxy';
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+      const config = loadConfig();
+
+      expect(config.network.proxy).toBeUndefined();
+      expect(getGlobalArgs(config)).toEqual([]);
+      expect(warn).toHaveBeenCalled();
+
+      warn.mockRestore();
+    });
+
+    test.each([
+      'http://proxy.local:3128',
+      'https://proxy.local:3128',
+      'socks4://127.0.0.1:1080',
+      'socks5://127.0.0.1:1080',
+      'socks5h://127.0.0.1:1080'
+    ])('accepts %s', async (proxy) => {
+      process.env.YTDLP_PROXY = proxy;
+
+      const { getGlobalArgs, loadConfig } = await import('../config.js');
+
+      expect(getGlobalArgs(loadConfig())).toEqual(['--proxy', proxy]);
+    });
+
+    test('tolerates a config object without a network section', async () => {
+      const { getGlobalArgs } = await import('../config.js');
+
+      expect(getGlobalArgs({} as never)).toEqual([]);
+    });
+  });
+});

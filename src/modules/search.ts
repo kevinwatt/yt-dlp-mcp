@@ -1,6 +1,6 @@
 import { _spawnPromise } from "./utils.js";
 import type { Config } from "../config.js";
-import { getCookieArgs } from "../config.js";
+import { getCookieArgs, getGlobalArgs } from "../config.js";
 
 /**
  * Upload date filter type
@@ -77,6 +77,7 @@ export async function searchVideos(
       const searchUrl = `https://www.youtube.com/results?search_query=${encodedQuery}&sp=${spParam}`;
 
       args = [
+        ...getGlobalArgs(config),
         searchUrl,
         "--flat-playlist",
         "--print", "title",
@@ -84,6 +85,7 @@ export async function searchVideos(
         "--print", "uploader",
         "--print", "duration",
         "--no-download",
+        "--no-download-archive",
         "--quiet",
         "--playlist-end", String(totalToFetch),
         ...getCookieArgs(config)
@@ -92,12 +94,14 @@ export async function searchVideos(
       // Use ytsearch prefix for regular search
       const searchQuery = `ytsearch${totalToFetch}:${cleanQuery}`;
       args = [
+        ...getGlobalArgs(config),
         searchQuery,
         "--print", "title",
         "--print", "id",
         "--print", "uploader",
         "--print", "duration",
         "--no-download",
+        "--no-download-archive",
         "--quiet",
         ...getCookieArgs(config)
       ];

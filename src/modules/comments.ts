@@ -1,5 +1,5 @@
 import type { Config } from "../config.js";
-import { getCookieArgs } from "../config.js";
+import { getCookieArgs, getGlobalArgs } from "../config.js";
 import { _spawnPromise, validateUrl } from "./utils.js";
 import {
   buildCommentExtractorArgs,
@@ -65,7 +65,9 @@ export async function getVideoComments(
   });
 
   const args = [
+    ...(config ? getGlobalArgs(config) : []),
     "--dump-json",
+    "--no-download-archive",
     "--no-warnings",
     "--no-check-certificate",
     "--write-comments",
@@ -112,7 +114,9 @@ export async function getVideoCommentsSummary(
   });
 
   const args = [
+    ...(config ? getGlobalArgs(config) : []),
     "--dump-json",
+    "--no-download-archive",
     "--no-warnings",
     "--no-check-certificate",
     "--write-comments",
