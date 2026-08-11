@@ -85,6 +85,7 @@ Important comments behavior:
 ### Key Patterns
 - **Unified error handling**: `handleToolExecution()` wrapper for consistent error responses
 - **Spawn management**: All external tool calls go through `_spawnPromise()` with cleanup
+- **Global yt-dlp args**: Every invocation prepends `getGlobalArgs(config)` (proxy + config-file handling) — see "yt-dlp Config File Behavior" below
 - **Configuration-driven**: All defaults and behavior configurable via environment variables
 - **ESM modules**: Uses `.mts` extension and ESM imports throughout
 - **Filename sanitization**: Cross-platform safe filename handling with length limits
@@ -103,6 +104,32 @@ Important comments behavior:
 - Filename sanitization rules
 - Temporary directory management
 - Environment variable overrides (YTDLP_* prefix)
+- Proxy passthrough (`YTDLP_PROXY`) and yt-dlp config-file behavior (`YTDLP_IGNORE_CONFIG`)
+
+### yt-dlp Config File Behavior
+Every tool prepends `getGlobalArgs(config)` to its yt-dlp arguments. Keep this
+invariant when adding tools — it is what makes proxy handling uniform.
+
+- Tools do **not** pass `--ignore-config` by default, so the user's yt-dlp
+  config file (`~/.config/yt-dlp/config`) is honored. Some MCP clients cannot
+  inject env vars into the server process, making that file their only way to
+  configure a proxy or cookies (#30).
+- Because a user config file can rewrite output paths, filenames and
+  extensions, download tools must let yt-dlp **report** the produced file
+  rather than predict or reconstruct it. `video.ts` and `audio.ts` pass
+  `--no-simulate --print after_move:filepath` and parse the result via
+  `resolveDownloadedFile()` in `utils.ts`. Do not reintroduce
+  `--get-filename` (it ignores post-processing extension changes) and do not
+  rely on matching the timestamp (`--trim-filenames` and a small
+  `YTDLP_MAX_FILENAME_LENGTH` both destroy it).
+- Tools that locate files by extension must pin that extension on the command
+  line (e.g. `--convert-subs vtt` in `downloadSubtitles`), since CLI args
+  override config-file args.
+- **All** tools pass `--no-download-archive`. A user's `--download-archive`
+  otherwise suppresses the entry entirely — for the `--dump-json` tools that
+  means empty stdout and a JSON parse failure, not just a skipped download.
+- Download tools also pass `--no-simulate`, which both enables `--print` and
+  neutralizes a `--simulate` in the user's config file.
 
 ### Testing Setup
 - **Jest with ESM**: Custom config for TypeScript + ESM support

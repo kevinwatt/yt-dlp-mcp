@@ -1,4 +1,6 @@
 import * as fs from 'fs';
+import * as path from 'path';
+import { readdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 
@@ -146,6 +148,54 @@ export function getFormattedTimestamp(): string {
  * console.log(filename); // '2024-03-20_12-30-00_a1b2c3d4.mp3'
  * ```
  */
+/**
+ * Resolves the absolute path of the file a download actually produced.
+ *
+ * Primary source is the path yt-dlp printed via `--print after_move:filepath`,
+ * which is emitted after post-processing and therefore survives extension
+ * rewrites (`-x`, `--remux-video`), filename rewrites (`--restrict-filenames`)
+ * and truncation (`--trim-filenames`, `YTDLP_MAX_FILENAME_LENGTH`). Any of
+ * those can come from the user's yt-dlp config file, so the path must be
+ * reported by yt-dlp rather than predicted or reconstructed.
+ *
+ * The printed path is accepted even when it falls outside `downloadsDir`:
+ * `--trim-filenames` truncates the whole path, so a config file can move the
+ * download elsewhere entirely. Reporting where the file really landed beats
+ * claiming it is missing.
+ *
+ * Falls back to scanning `downloadsDir` for the timestamp embedded in the
+ * output template, which covers yt-dlp builds that print nothing.
+ *
+ * @param output - stdout captured from the yt-dlp download invocation
+ * @param downloadsDir - Directory the download was requested to be written to
+ * @param timestamp - Timestamp embedded in the output template
+ * @returns Absolute path of the downloaded file, or undefined if none was found
+ */
+export function resolveDownloadedFile(
+  output: string,
+  downloadsDir: string,
+  timestamp: string
+): string | undefined {
+  // yt-dlp prints the final path on its own line. Progress, info and verbose
+  // lines are all bracket-prefixed, so an absolute path is unambiguous.
+  const printed = output
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith('[') && path.isAbsolute(line))
+    .pop();
+
+  if (printed) {
+    return printed;
+  }
+
+  try {
+    const found = readdirSync(downloadsDir).find(file => file.includes(timestamp));
+    return found ? path.join(downloadsDir, found) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function generateRandomFilename(extension: string = 'mp4'): string {
   const timestamp = getFormattedTimestamp();
   const randomId = randomBytes(4).toString('hex');

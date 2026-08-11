@@ -271,7 +271,30 @@ interface Config {
     defaultAudioFormat: "m4a" | "mp3";
     defaultSubtitleLanguage: string;
   };
+  limits: {
+    characterLimit: number;
+    maxTranscriptLength: number;
+  };
+  cookies: {
+    file?: string;
+    fromBrowser?: string;
+  };
+  network: {
+    proxy?: string;
+    ignoreConfig: boolean;
+  };
 }
 ```
+
+### getGlobalArgs(config: Config): string[]
+
+Returns the yt-dlp arguments applied to every invocation: `--ignore-config`
+when `network.ignoreConfig` is set, and `--proxy <url>` when `network.proxy`
+is defined. All tools prepend these to their argument list.
+
+### getCookieArgs(config: Config): string[]
+
+Returns `--cookies <file>` or `--cookies-from-browser <browser>` depending on
+the cookie configuration. `cookies.file` takes precedence.
 
 For detailed configuration options, see [Configuration Guide](./configuration.md).
