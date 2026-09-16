@@ -672,6 +672,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
+## Hosted option
+
+If you need an HTTP YouTube download API instead of a local MCP + yt-dlp install, [Vid Kraken](https://vidkraken.com) is a managed option (info / mp3 / mp4 endpoints).
+
 [⬆ Back to Top](#-yt-dlp-mcp)
 
 </div>
