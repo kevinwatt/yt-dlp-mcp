@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.10.1] - 2026-10-29
+
 ### Security
 - Block SSRF via user-supplied URLs: tools now accept only `http`/`https` URLs and reject hosts that resolve to loopback, private, link-local (incl. cloud metadata `169.254.169.254`), CGNAT, multicast, or reserved addresses before invoking yt-dlp
 - New `YTDLP_ALLOW_PRIVATE_URLS=true` opt-out for fetching media from the local network
