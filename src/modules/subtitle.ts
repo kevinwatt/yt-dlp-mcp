@@ -3,7 +3,7 @@ import * as path from "path";
 import * as os from "os";
 import type { Config } from '../config.js';
 import { getCookieArgs, getGlobalArgs } from '../config.js';
-import { _spawnPromise, validateUrl, cleanSubtitleToTranscript } from "./utils.js";
+import { _spawnPromise, validateUrl, assertPublicUrl, cleanSubtitleToTranscript } from "./utils.js";
 
 /**
  * Lists all available subtitles for a video.
@@ -27,6 +27,7 @@ export async function listSubtitles(url: string, config?: Config): Promise<strin
   if (!validateUrl(url)) {
     throw new Error('Invalid or unsupported URL format. Please provide a valid video URL (e.g., https://youtube.com/watch?v=...)');
   }
+  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
 
   try {
     const args = [
@@ -93,6 +94,7 @@ export async function downloadSubtitles(
   if (!validateUrl(url)) {
     throw new Error('Invalid or unsupported URL format. Please provide a valid video URL (e.g., https://youtube.com/watch?v=...)');
   }
+  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
 
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), config.file.tempDirPrefix));
 
@@ -176,6 +178,7 @@ export async function downloadTranscript(
   if (!validateUrl(url)) {
     throw new Error('Invalid or unsupported URL format. Please provide a valid video URL (e.g., https://youtube.com/watch?v=...)');
   }
+  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
 
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), config.file.tempDirPrefix));
 

@@ -69,6 +69,11 @@ export interface Config {
     // clients that cannot inject env vars into the MCP server process.
     ignoreConfig: boolean;
   };
+  // Network access restrictions for user-supplied URLs
+  security: {
+    // Allow URLs that resolve to loopback/private/link-local addresses
+    allowPrivateUrls: boolean;
+  };
 }
 
 /**
@@ -109,6 +114,9 @@ const defaultConfig: Config = {
   network: {
     proxy: undefined,
     ignoreConfig: false
+  },
+  security: {
+    allowPrivateUrls: false
   }
 };
 
@@ -196,6 +204,13 @@ function loadEnvConfig(): DeepPartial<Config> {
   }
   if (Object.keys(networkConfig).length > 0) {
     envConfig.network = networkConfig;
+  }
+
+  // Security configuration
+  if (process.env.YTDLP_ALLOW_PRIVATE_URLS) {
+    envConfig.security = {
+      allowPrivateUrls: parseBooleanEnv(process.env.YTDLP_ALLOW_PRIVATE_URLS)
+    };
   }
 
   return envConfig;
@@ -338,6 +353,9 @@ function mergeConfig(base: Config, override: DeepPartial<Config>): Config {
       proxy: override.network?.proxy ?? base.network.proxy,
       // ?? not || — an explicit `false` override must survive
       ignoreConfig: override.network?.ignoreConfig ?? base.network.ignoreConfig
+    },
+    security: {
+      allowPrivateUrls: override.security?.allowPrivateUrls ?? base.security.allowPrivateUrls
     }
   };
 }

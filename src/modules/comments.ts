@@ -1,6 +1,6 @@
 import type { Config } from "../config.js";
 import { getCookieArgs, getGlobalArgs } from "../config.js";
-import { _spawnPromise, validateUrl } from "./utils.js";
+import { _spawnPromise, validateUrl, assertPublicUrl } from "./utils.js";
 import {
   buildCommentExtractorArgs,
   formatCommentsOutput,
@@ -44,6 +44,7 @@ export async function getVideoComments(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
+  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
 
   const normalizedView = options.responseFormat === "markdown_tree"
     ? options.view ?? "threaded"
@@ -107,6 +108,7 @@ export async function getVideoCommentsSummary(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
+  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
 
   const requestOptions = resolveCommentRequestOptions({
     maxComments,

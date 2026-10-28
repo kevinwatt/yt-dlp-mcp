@@ -439,7 +439,12 @@ YTDLP_DEFAULT_RESOLUTION=1080p
 
 # Default subtitle language (default: en)
 YTDLP_DEFAULT_SUBTITLE_LANG=en
+
+# Allow URLs that resolve to localhost/private/link-local addresses (default: false)
+YTDLP_ALLOW_PRIVATE_URLS=false
 ```
+
+Only `http`/`https` URLs are accepted, and URLs whose host resolves to a loopback, private, or link-local address (e.g. `localhost`, `192.168.x.x`, `169.254.169.254`) are rejected. Set `YTDLP_ALLOW_PRIVATE_URLS=true` if you need to fetch media from your local network.
 
 See the [Configuration Guide](./docs/configuration.md) for the full list.
 

@@ -2,7 +2,8 @@ import type { Config } from "../config.js";
 import { getCookieArgs, getGlobalArgs } from "../config.js";
 import {
   _spawnPromise,
-  validateUrl
+  validateUrl,
+  assertPublicUrl
 } from "./utils.js";
 
 /**
@@ -154,6 +155,7 @@ export async function getVideoMetadata(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
+  await assertPublicUrl(url, _config?.security?.allowPrivateUrls);
 
   const args = [
     ...(_config ? getGlobalArgs(_config) : []),

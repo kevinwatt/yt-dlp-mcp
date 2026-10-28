@@ -60,6 +60,7 @@ interface Config {
 | `YTDLP_COOKIES_FROM_BROWSER` | Browser to extract cookies from | — |
 | `YTDLP_PROXY` | Proxy URL for all yt-dlp requests. Empty value forces a direct connection | — |
 | `YTDLP_IGNORE_CONFIG` | Skip all yt-dlp config files | `false` |
+| `YTDLP_ALLOW_PRIVATE_URLS` | Allow URLs whose host resolves to a loopback, private, or link-local address | `false` |
 
 ### Proxy and yt-dlp Config File
 

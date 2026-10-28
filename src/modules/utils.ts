@@ -3,6 +3,8 @@ import * as path from 'path';
 import { readdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
+import { lookup } from 'dns/promises';
+import { BlockList, isIPv4 } from 'net';
 
 /**
  * Validates if a given string is a valid URL.
@@ -19,10 +21,75 @@ import { randomBytes } from 'crypto';
  */
 export function validateUrl(url: string): boolean {
   try {
-    new URL(url);
-    return true;
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:';
   } catch {
     return false;
+  }
+}
+
+// Loopback, private, link-local (incl. cloud metadata), CGNAT, multicast and reserved ranges
+const NON_PUBLIC_ADDRESSES = new BlockList();
+for (const [network, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+  ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.168.0.0', 16],
+  ['198.18.0.0', 15], ['224.0.0.0', 4], ['240.0.0.0', 4]
+] as const) {
+  NON_PUBLIC_ADDRESSES.addSubnet(network, prefix, 'ipv4');
+}
+for (const [network, prefix] of [
+  ['::', 128], ['::1', 128], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]
+] as const) {
+  NON_PUBLIC_ADDRESSES.addSubnet(network, prefix, 'ipv6');
+}
+
+/**
+ * Checks if an IP address is loopback, private, link-local or otherwise not publicly routable.
+ *
+ * @param address - IPv4 or IPv6 address
+ * @returns True if the address must not be fetched
+ */
+export function isNonPublicAddress(address: string): boolean {
+  // IPv4-mapped IPv6, in dotted (::ffff:127.0.0.1) or hex (::ffff:7f00:1) form
+  const dotted = address.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (dotted) {
+    return NON_PUBLIC_ADDRESSES.check(dotted[1], 'ipv4');
+  }
+  const hex = address.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+  if (hex) {
+    const [high, low] = [parseInt(hex[1], 16), parseInt(hex[2], 16)];
+    return NON_PUBLIC_ADDRESSES.check(`${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`, 'ipv4');
+  }
+  return NON_PUBLIC_ADDRESSES.check(address, isIPv4(address) ? 'ipv4' : 'ipv6');
+}
+
+/**
+ * Rejects URLs whose host resolves to a loopback, private or link-local address,
+ * so tools cannot be used to reach internal services or cloud metadata endpoints.
+ *
+ * @param url - The URL to check (must already pass validateUrl)
+ * @param allowPrivate - Skip the check (YTDLP_ALLOW_PRIVATE_URLS=true)
+ * @throws {Error} When the host resolves to a non-public address
+ */
+export async function assertPublicUrl(url: string, allowPrivate = false): Promise<void> {
+  if (allowPrivate) {
+    return;
+  }
+
+  const hostname = new URL(url).hostname.replace(/^\[|\]$/g, '');
+  let addresses: { address: string }[];
+  try {
+    addresses = await lookup(hostname, { all: true, verbatim: true });
+  } catch {
+    // Proxy-only networks may not resolve external names locally; leave it to yt-dlp
+    return;
+  }
+
+  if (addresses.some(({ address }) => isNonPublicAddress(address))) {
+    throw new Error(
+      `URL host ${hostname} resolves to a private or local network address, which is blocked. ` +
+      'Set YTDLP_ALLOW_PRIVATE_URLS=true to allow it.'
+    );
   }
 }
 

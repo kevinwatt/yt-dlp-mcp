@@ -86,6 +86,7 @@ Important comments behavior:
 - **Unified error handling**: `handleToolExecution()` wrapper for consistent error responses
 - **Spawn management**: All external tool calls go through `_spawnPromise()` with cleanup
 - **Global yt-dlp args**: Every invocation prepends `getGlobalArgs(config)` (proxy + config-file handling) — see "yt-dlp Config File Behavior" below
+- **URL safety**: Every tool that takes a `url` calls `validateUrl()` (http/https only) and then `assertPublicUrl(url, config?.security?.allowPrivateUrls)` before spawning yt-dlp, which blocks SSRF to loopback/private/link-local hosts (#33)
 - **Configuration-driven**: All defaults and behavior configurable via environment variables
 - **ESM modules**: Uses `.mts` extension and ESM imports throughout
 - **Filename sanitization**: Cross-platform safe filename handling with length limits

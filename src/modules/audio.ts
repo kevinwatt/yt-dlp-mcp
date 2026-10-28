@@ -4,6 +4,7 @@ import { sanitizeFilename, getCookieArgs, getGlobalArgs } from "../config.js";
 import {
   _spawnPromise,
   validateUrl,
+  assertPublicUrl,
   getFormattedTimestamp,
   isYouTubeUrl,
   resolveDownloadedFile
@@ -39,6 +40,7 @@ export async function downloadAudio(url: string, config: Config): Promise<string
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
+  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
 
   try {
     const outputTemplate = path.join(

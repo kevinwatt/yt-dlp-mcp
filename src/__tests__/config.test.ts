@@ -301,3 +301,26 @@ describe('Network Configuration', () => {
     });
   });
 });
+
+describe('Security Configuration', () => {
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.YTDLP_ALLOW_PRIVATE_URLS;
+    jest.resetModules();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  test('blocks private URLs by default', async () => {
+    const { loadConfig } = await import('../config.js');
+    expect(loadConfig().security.allowPrivateUrls).toBe(false);
+  });
+
+  test('allows private URLs when YTDLP_ALLOW_PRIVATE_URLS=true', async () => {
+    process.env.YTDLP_ALLOW_PRIVATE_URLS = 'true';
+    const { loadConfig } = await import('../config.js');
+    expect(loadConfig().security.allowPrivateUrls).toBe(true);
+  });
+});
