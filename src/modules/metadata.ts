@@ -155,7 +155,7 @@ export async function getVideoMetadata(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
-  await assertPublicUrl(url, _config?.security?.allowPrivateUrls);
+  await assertPublicUrl(url, _config);
 
   const args = [
     ...(_config ? getGlobalArgs(_config) : []),

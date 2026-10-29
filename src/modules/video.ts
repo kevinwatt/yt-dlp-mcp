@@ -58,7 +58,7 @@ export async function downloadVideo(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
-  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
+  await assertPublicUrl(url, config);
 
   const timestamp = getFormattedTimestamp();
 

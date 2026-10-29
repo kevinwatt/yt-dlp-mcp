@@ -44,7 +44,7 @@ export async function getVideoComments(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
-  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
+  await assertPublicUrl(url, config);
 
   const normalizedView = options.responseFormat === "markdown_tree"
     ? options.view ?? "threaded"
@@ -108,7 +108,7 @@ export async function getVideoCommentsSummary(
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
-  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
+  await assertPublicUrl(url, config);
 
   const requestOptions = resolveCommentRequestOptions({
     maxComments,

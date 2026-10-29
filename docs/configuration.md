@@ -62,6 +62,25 @@ interface Config {
 | `YTDLP_IGNORE_CONFIG` | Skip all yt-dlp config files | `false` |
 | `YTDLP_ALLOW_PRIVATE_URLS` | Allow URLs whose host resolves to a loopback, private, or link-local address | `false` |
 
+### Private URL Blocking
+
+Tools accept only `http`/`https` URLs and reject URLs whose host resolves to a
+loopback, private, link-local (incl. cloud metadata `169.254.169.254`), CGNAT,
+multicast, or reserved address. If the host cannot be resolved locally, the URL
+is still passed to yt-dlp when a proxy may be in use (`YTDLP_PROXY`, the yt-dlp
+config file, or `HTTP(S)_PROXY`/`ALL_PROXY`), since proxy-only networks often
+cannot resolve external names; otherwise it is rejected.
+
+This is a pre-check of the entry URL only. yt-dlp opens its own connections
+afterwards, so it does **not** protect against:
+
+- **HTTP redirects** from a public URL to an internal address
+- **DNS rebinding**, where a hostname resolves to a public address for the
+  check and to an internal one when yt-dlp connects
+
+Where this matters, enforce egress restrictions at the network layer
+(container network policy, firewall rules, blocking `169.254.169.254`).
+
 ### Proxy and yt-dlp Config File
 
 By default no `--ignore-config` is passed, so every tool honors the user's

@@ -1,6 +1,6 @@
 // @ts-nocheck
 // @jest-environment node
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { validateUrl, isNonPublicAddress, assertPublicUrl } from '../modules/utils.js';
 import { getVideoMetadata } from '../modules/metadata.js';
 import { CONFIG } from '../config.js';
@@ -48,7 +48,41 @@ describe('assertPublicUrl', () => {
   });
 
   test('allows private hosts when explicitly enabled', async () => {
-    await expect(assertPublicUrl('http://127.0.0.1/', true)).resolves.toBeUndefined();
+    await expect(assertPublicUrl('http://127.0.0.1/', { security: { allowPrivateUrls: true } })).resolves.toBeUndefined();
+  });
+
+  describe('unresolvable hosts', () => {
+    const unresolvable = 'http://does-not-exist.invalid/';
+    const proxyVars = ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy'];
+    let saved;
+
+    beforeEach(() => {
+      saved = Object.fromEntries(proxyVars.map((name) => [name, process.env[name]]));
+      proxyVars.forEach((name) => delete process.env[name]);
+    });
+
+    afterEach(() => {
+      proxyVars.forEach((name) => {
+        if (saved[name] === undefined) delete process.env[name];
+        else process.env[name] = saved[name];
+      });
+    });
+
+    test('fail closed when yt-dlp has no proxy to resolve them', async () => {
+      await expect(assertPublicUrl(unresolvable, { network: { ignoreConfig: true } }))
+        .rejects.toThrow(/Cannot resolve/);
+      await expect(assertPublicUrl(unresolvable, { network: { proxy: '', ignoreConfig: false } }))
+        .rejects.toThrow(/Cannot resolve/);
+    });
+
+    test('are left to yt-dlp when a proxy may resolve them', async () => {
+      await expect(assertPublicUrl(unresolvable, { network: { proxy: 'socks5://127.0.0.1:1080', ignoreConfig: true } }))
+        .resolves.toBeUndefined();
+      // The yt-dlp config file may set a proxy
+      await expect(assertPublicUrl(unresolvable, { network: { ignoreConfig: false } })).resolves.toBeUndefined();
+      process.env.HTTPS_PROXY = 'http://127.0.0.1:3128';
+      await expect(assertPublicUrl(unresolvable, { network: { ignoreConfig: true } })).resolves.toBeUndefined();
+    });
   });
 
   test('tools reject internal URLs before invoking yt-dlp', async () => {

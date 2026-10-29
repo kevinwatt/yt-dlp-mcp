@@ -446,6 +446,8 @@ YTDLP_ALLOW_PRIVATE_URLS=false
 
 Only `http`/`https` URLs are accepted, and URLs whose host resolves to a loopback, private, or link-local address (e.g. `localhost`, `192.168.x.x`, `169.254.169.254`) are rejected. Set `YTDLP_ALLOW_PRIVATE_URLS=true` if you need to fetch media from your local network.
 
+> **Limitation:** this check runs once on the URL you pass in, before yt-dlp starts. yt-dlp then makes its own connections, so it does **not** cover HTTP redirects to internal addresses or DNS rebinding. If you run this server where reaching internal services matters (e.g. a shared or cloud-hosted deployment), restrict outbound traffic at the network layer (container network policy, firewall, or blocking `169.254.169.254`).
+
 See the [Configuration Guide](./docs/configuration.md) for the full list.
 
 ### Proxy and yt-dlp Config File

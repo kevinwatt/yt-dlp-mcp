@@ -40,7 +40,7 @@ export async function downloadAudio(url: string, config: Config): Promise<string
   if (!validateUrl(url)) {
     throw new Error("Invalid or unsupported URL format");
   }
-  await assertPublicUrl(url, config?.security?.allowPrivateUrls);
+  await assertPublicUrl(url, config);
 
   try {
     const outputTemplate = path.join(

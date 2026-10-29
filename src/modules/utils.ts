@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import { lookup } from 'dns/promises';
 import { BlockList, isIPv4 } from 'net';
+import type { Config } from '../config.js';
 
 /**
  * Validates if a given string is a valid URL.
@@ -67,12 +68,22 @@ export function isNonPublicAddress(address: string): boolean {
  * Rejects URLs whose host resolves to a loopback, private or link-local address,
  * so tools cannot be used to reach internal services or cloud metadata endpoints.
  *
+ * Limitation: this checks the entry URL only, once, before yt-dlp runs. yt-dlp then
+ * opens its own connections, so a public URL that redirects to an internal address,
+ * or a hostname that rebinds (DNS TTL 0) between this check and yt-dlp's fetch, is
+ * not caught. Deployments that need a hard boundary must restrict egress at the
+ * network layer (container network policy, firewall).
+ *
  * @param url - The URL to check (must already pass validateUrl)
- * @param allowPrivate - Skip the check (YTDLP_ALLOW_PRIVATE_URLS=true)
- * @throws {Error} When the host resolves to a non-public address
+ * @param config - Uses security.allowPrivateUrls (skip the check) and network settings
+ * @throws {Error} When the host resolves to a non-public address, or cannot be
+ *   resolved while yt-dlp has no proxy that could resolve it instead
  */
-export async function assertPublicUrl(url: string, allowPrivate = false): Promise<void> {
-  if (allowPrivate) {
+export async function assertPublicUrl(
+  url: string,
+  config?: { security?: Config['security']; network?: Config['network'] }
+): Promise<void> {
+  if (config?.security?.allowPrivateUrls) {
     return;
   }
 
@@ -81,8 +92,13 @@ export async function assertPublicUrl(url: string, allowPrivate = false): Promis
   try {
     addresses = await lookup(hostname, { all: true, verbatim: true });
   } catch {
-    // Proxy-only networks may not resolve external names locally; leave it to yt-dlp
-    return;
+    // Proxy-only networks may not resolve external names locally; leave those to
+    // yt-dlp's proxy. Without any possible proxy, yt-dlp would resolve the name the
+    // same way we just failed to, so fail closed.
+    if (mayUseProxy(config?.network)) {
+      return;
+    }
+    throw new Error(`Cannot resolve URL host ${hostname}.`);
   }
 
   if (addresses.some(({ address }) => isNonPublicAddress(address))) {
@@ -91,6 +107,21 @@ export async function assertPublicUrl(url: string, allowPrivate = false): Promis
       'Set YTDLP_ALLOW_PRIVATE_URLS=true to allow it.'
     );
   }
+}
+
+/**
+ * Whether yt-dlp may route through a proxy: YTDLP_PROXY, a proxy in the yt-dlp
+ * config file (honored unless YTDLP_IGNORE_CONFIG), or proxy environment variables.
+ */
+function mayUseProxy(network?: Config['network']): boolean {
+  if (network?.proxy !== undefined) {
+    return network.proxy !== '';
+  }
+  if (!network?.ignoreConfig) {
+    return true;
+  }
+  return ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy']
+    .some((name) => Boolean(process.env[name]));
 }
 
 /**
