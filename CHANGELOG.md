@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.10.2] - 2026-10-29
+
 ### Security
 - `assertPublicUrl` now fails closed when the URL host cannot be resolved and yt-dlp has no possible proxy (no `YTDLP_PROXY`, `YTDLP_IGNORE_CONFIG=true`, and no `HTTP(S)_PROXY`/`ALL_PROXY`); proxy setups keep the previous pass-through behavior
 - Documented that the private-URL check covers the entry URL only, not HTTP redirects or DNS rebinding, and that hard isolation requires network-layer egress restrictions
