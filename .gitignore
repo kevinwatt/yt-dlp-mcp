@@ -29,12 +29,19 @@ node_modules
 # Local npm auth (token must not be committed)
 .npmrc
 
+# Local secrets (npm tokens etc) - never commit
+.env
+.env.*
+!.env.example
+
 lib
 test-dist
 
 # Claude Code
 .claude/
 CLAUDE.md
+AGENTS.md
+.agents/
 # WebStorm
 .idea/
 plan/
