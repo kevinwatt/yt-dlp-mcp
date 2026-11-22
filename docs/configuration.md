@@ -61,6 +61,8 @@ interface Config {
 | `YTDLP_PROXY` | Proxy URL for all yt-dlp requests. Empty value forces a direct connection | — |
 | `YTDLP_IGNORE_CONFIG` | Skip all yt-dlp config files | `false` |
 | `YTDLP_ALLOW_PRIVATE_URLS` | Allow URLs whose host resolves to a loopback, private, or link-local address | `false` |
+| `YTDLP_CHARACTER_LIMIT` | Page size, in characters, for tool responses such as `ytdlp_download_video_subtitles` | `25000` |
+| `YTDLP_MAX_TRANSCRIPT_LENGTH` | Page size, in characters, for `ytdlp_download_transcript` | `50000` |
 
 ### Private URL Blocking
 

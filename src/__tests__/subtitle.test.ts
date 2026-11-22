@@ -4,7 +4,7 @@ import { describe, test, expect } from '@jest/globals';
 import * as os from 'os';
 import * as path from 'path';
 import { listSubtitles, downloadSubtitles, downloadTranscript } from '../modules/subtitle.js';
-import { cleanSubtitleToTranscript } from '../modules/utils.js';
+import { cleanSubtitleToTranscript, srtToTimestampedLines, paginateText } from '../modules/utils.js';
 import { CONFIG } from '../config.js';
 import * as fs from 'fs';
 
@@ -106,6 +106,57 @@ Second line`;
       expect(result).not.toContain('00:00');
       expect(result).not.toMatch(/^\d+$/);
       expect(result).toBe('First line Second line');
+    });
+  });
+
+  describe('srtToTimestampedLines', () => {
+    test('emits one line per cue at its whole-second start time', () => {
+      const srtContent = `1\r
+00:00:01,900 --> 00:00:03,000\r
+Hello <i>world</i>\r
+\r
+2\r
+01:02:03,000 --> 01:02:05,000\r
+multi\r
+line cue\r
+\r
+3\r
+01:02:06,000 --> 01:02:07,000\r
+<font color="#fff"></font>\r
+`;
+
+      expect(srtToTimestampedLines(srtContent)).toBe(
+        '[00:00:01] Hello world\n[01:02:03] multi line cue'
+      );
+    });
+  });
+
+  describe('paginateText', () => {
+    const cues = ['[00:00:01] one', '[00:00:02] two', '[00:00:03] three'].join('\n');
+
+    test('returns the whole text with no next offset when it fits', () => {
+      expect(paginateText(cues, 0, 1000, '\n')).toEqual({ text: cues, total: cues.length });
+    });
+
+    test('pages through the text on separator boundaries without loss', () => {
+      const pages: string[] = [];
+      let offset: number | undefined = 0;
+      while (offset !== undefined) {
+        const page = paginateText(cues, offset, 20, '\n');
+        expect(page.text.length).toBeLessThanOrEqual(20);
+        pages.push(page.text);
+        offset = page.nextOffset;
+      }
+      expect(pages).toEqual(['[00:00:01] one\n', '[00:00:02] two\n', '[00:00:03] three']);
+      expect(pages.join('')).toBe(cues);
+    });
+
+    test('hard-cuts a window that contains no separator', () => {
+      expect(paginateText('abcdefgh', 0, 3, '\n')).toEqual({ text: 'abc', nextOffset: 3, total: 8 });
+    });
+
+    test('rejects an offset past the end', () => {
+      expect(() => paginateText(cues, cues.length, 20, '\n')).toThrow(/past the end/);
     });
   });
 }); 

@@ -334,3 +334,65 @@ export function cleanSubtitleToTranscript(srtContent: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 } 
+
+/**
+ * Converts SRT subtitle content to one `[HH:MM:SS] text` line per cue.
+ *
+ * The timestamp is the cue's start time truncated to whole seconds, which is
+ * what YouTube's `&t=<seconds>s` links take. Cues left empty after tag
+ * removal are dropped.
+ *
+ * @example
+ * ```typescript
+ * srtToTimestampedLines('1\n00:01:02,500 --> 00:01:04,000\n<i>Hello</i>\n');
+ * // '[00:01:02] Hello'
+ * ```
+ */
+export function srtToTimestampedLines(srtContent: string): string {
+  const lines: string[] = [];
+  for (const block of srtContent.replace(/\r\n/g, '\n').split(/\n\s*\n/)) {
+    const blockLines = block.split('\n');
+    const timingIndex = blockLines.findIndex(line => line.includes('-->'));
+    if (timingIndex === -1) continue;
+    const start = blockLines[timingIndex].match(/(\d{2}:\d{2}:\d{2})[.,]\d{3}\s*-->/);
+    if (!start) continue;
+    const text = blockLines.slice(timingIndex + 1)
+      .join(' ')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text) lines.push(`[${start[1]}] ${text}`);
+  }
+  return lines.join('\n');
+}
+
+export interface TextPage {
+  text: string;
+  /** Offset to pass to get the following page; undefined on the last page. */
+  nextOffset?: number;
+  total: number;
+}
+
+/**
+ * Returns at most `limit` characters of `text` starting at `offset`.
+ *
+ * A page that does not reach the end of the text is cut after the last
+ * `separator` inside the window, so a caption cue or word is never split
+ * across pages; a window with no separator falls back to a hard cut so the
+ * caller always makes progress.
+ *
+ * @throws {Error} When `offset` is at or past the end of a non-empty text
+ */
+export function paginateText(text: string, offset: number, limit: number, separator: string): TextPage {
+  const total = text.length;
+  if (offset > 0 && offset >= total) {
+    throw new Error(`offset ${offset} is past the end of the content (${total} characters). Use offset=0 to start over.`);
+  }
+  const windowEnd = offset + limit;
+  if (windowEnd >= total) {
+    return { text: text.slice(offset), total };
+  }
+  const cut = text.lastIndexOf(separator, windowEnd - separator.length);
+  const end = cut > offset ? cut + separator.length : windowEnd;
+  return { text: text.slice(offset, end), nextOffset: end, total };
+}

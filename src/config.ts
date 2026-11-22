@@ -213,6 +213,24 @@ function loadEnvConfig(): DeepPartial<Config> {
     };
   }
 
+  const limitsConfig: Partial<Config['limits']> = {};
+  for (const [envName, key] of [
+    ['YTDLP_CHARACTER_LIMIT', 'characterLimit'],
+    ['YTDLP_MAX_TRANSCRIPT_LENGTH', 'maxTranscriptLength'],
+  ] as const) {
+    const raw = process.env[envName];
+    if (!raw) continue;
+    const parsed = parseInt(raw, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      limitsConfig[key] = parsed;
+    } else {
+      console.warn(`[yt-dlp-mcp] Invalid ${envName}, using default`);
+    }
+  }
+  if (Object.keys(limitsConfig).length > 0) {
+    envConfig.limits = limitsConfig;
+  }
+
   return envConfig;
 }
 
