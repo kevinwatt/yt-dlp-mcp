@@ -254,8 +254,8 @@ List all available subtitle languages for a video
 <td>
 
 Download subtitles in VTT format with timestamps
-- **Parameters**: `url`, `language` (optional)
-- **Returns**: Raw VTT subtitle content
+- **Parameters**: `url`, `language` (optional), `offset` (optional, continues a partial response)
+- **Returns**: Raw VTT subtitle content, paginated on cue boundaries
 
 </td>
 </tr>
@@ -264,8 +264,8 @@ Download subtitles in VTT format with timestamps
 <td>
 
 Generate clean plain text transcript
-- **Parameters**: `url`, `language` (optional)
-- **Returns**: Cleaned text without timestamps or formatting
+- **Parameters**: `url`, `language` (optional), `timestamps` (optional, `[HH:MM:SS]` per caption line), `offset` (optional, continues a partial response)
+- **Returns**: Cleaned text, optionally timestamped, paginated on word or line boundaries
 
 </td>
 </tr>

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ytdlp_download_transcript` takes `timestamps: true` to return one `[HH:MM:SS] text` line per caption, a compact alternative to raw VTT for citing moments in a video (an 11:41 video: 14.7K characters vs. 106K of auto-generated VTT)
+- `offset` parameter on `ytdlp_download_video_subtitles` and `ytdlp_download_transcript`: oversized output is now paginated instead of dropped, and a partial response ends with the offset that fetches the next part
+- `YTDLP_CHARACTER_LIMIT` and `YTDLP_MAX_TRANSCRIPT_LENGTH` environment variables to set the response page sizes
+
+### Changed
+- Partial subtitle and transcript pages end on a cue, line or word boundary instead of mid-cue
+
 ---
 
 ## [0.10.2] - 2026-10-29

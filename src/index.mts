@@ -74,6 +74,11 @@ const DownloadVideoSubtitlesInput = {
     .regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "Invalid language code format")
     .optional()
     .describe("Language code (e.g., 'en', 'zh-Hant', 'ja')"),
+  offset: z.coerce.number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .default(0)
+    .describe("Character offset to continue from; use the offset named in a previous partial response"),
 };
 
 const DownloadVideoInput = {
@@ -107,6 +112,14 @@ const DownloadTranscriptInput = {
     .regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "Invalid language code format")
     .optional()
     .describe("Language code (e.g., 'en', 'zh-Hant', 'ja'). Defaults to 'en'"),
+  timestamps: z.boolean()
+    .default(false)
+    .describe("Prefix each caption line with its start time as [HH:MM:SS]"),
+  offset: z.coerce.number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .default(0)
+    .describe("Character offset to continue from; use the offset named in a previous partial response"),
 };
 
 const GetVideoMetadataInput = {
@@ -364,6 +377,7 @@ This tool downloads subtitle files in WebVTT format, including both manually cre
 Args:
   - url (string): Full video URL
   - language (string, optional): Language code (e.g., 'en', 'zh-Hant', 'ja'). Defaults to config setting (usually 'en'). Auto-generated subtitles are used if manual ones aren't available.
+  - offset (number, optional): Character offset to continue from. Defaults to 0.
 
 Returns:
   Raw VTT subtitle content with:
@@ -371,8 +385,10 @@ Returns:
   - Subtitle text segments
   - Formatting information
 
+  Responses are limited to ${CONFIG.limits.characterLimit} characters and end on a cue boundary. A partial response ends with a notice naming the offset to pass to get the next part; repeat until no notice appears.
+
 Use when: You need subtitle files with timestamps for video processing
-Don't use when: You want plain text transcript (use ytdlp_download_transcript instead)
+Don't use when: You want readable text, with or without timestamps (use ytdlp_download_transcript instead; auto-generated VTT repeats every line and is several times larger)
 
 Error Handling:
   - "Invalid or unsupported URL format" for bad URLs
@@ -386,9 +402,9 @@ Error Handling:
       openWorldHint: true
     }
   },
-  async ({ url, language }) =>
+  async ({ url, language, offset }) =>
     handleToolExecution(
-      () => downloadSubtitles(url, language || CONFIG.download.defaultSubtitleLanguage, CONFIG),
+      () => downloadSubtitles(url, language || CONFIG.download.defaultSubtitleLanguage, CONFIG, offset),
       "Error downloading subtitles"
     )
 );
@@ -484,16 +500,20 @@ This tool downloads subtitles and converts them to clean, readable text by remov
 Args:
   - url (string): Full video URL
   - language (string, optional): Language code (e.g., 'en', 'zh-Hant', 'ja'). Defaults to 'en'
+  - timestamps (boolean, optional): Prefix each caption line with its start time as [HH:MM:SS]. Defaults to false.
+  - offset (number, optional): Character offset to continue from. Defaults to 0.
 
 Returns:
-  Plain text transcript with:
+  Transcript text with:
   - All spoken content
-  - No timestamps or technical markers
+  - Without timestamps: one paragraph, whitespace normalized
+  - With timestamps: one "[HH:MM:SS] text" line per caption
   - Cleaned HTML/formatting tags
-  - Whitespace normalized
 
-Use when: You need readable text content for analysis, summarization, or quotes
-Don't use when: You need timestamps (use ytdlp_download_video_subtitles) or audio file (use ytdlp_download_audio)
+  Responses are limited to ${CONFIG.limits.maxTranscriptLength} characters and end on a word or line boundary. A partial response ends with a notice naming the offset to pass to get the next part; repeat until no notice appears.
+
+Use when: You need readable text content for analysis, summarization, or quotes; set timestamps=true to cite or link specific moments
+Don't use when: You need the raw subtitle file (use ytdlp_download_video_subtitles) or audio file (use ytdlp_download_audio)
 
 Error Handling:
   - "Invalid or unsupported URL format" for bad URLs
@@ -507,9 +527,9 @@ Error Handling:
       openWorldHint: true
     }
   },
-  async ({ url, language }) =>
+  async ({ url, language, timestamps, offset }) =>
     handleToolExecution(
-      () => downloadTranscript(url, language || CONFIG.download.defaultSubtitleLanguage, CONFIG),
+      () => downloadTranscript(url, language || CONFIG.download.defaultSubtitleLanguage, CONFIG, { timestamps, offset }),
       "Error downloading transcript"
     )
 );
